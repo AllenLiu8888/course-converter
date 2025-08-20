@@ -1,0 +1,30 @@
+{
+  "name": "my-course-converter",
+  "version": "1.0.0",
+  "description": "Convert Open edX OLX courses to LiaScript Markdown",
+  "type": "module",
+  "bin": {
+    "my-course-converter": "./bin/my-course-converter.js"
+  },
+  "scripts": {
+    "cli": "node ./bin/my-course-converter.js --help",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "olx",
+    "liascript",
+    "course-converter",
+    "openedx"
+  ],
+  "author": "Yikai Liu",
+  "license": "ISC",
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "commander": "^14.0.0",
+    "extract-zip": "^2.0.1",
+    "fast-xml-parser": "^5.2.5",
+    "node-html-markdown": "^1.3.0",
+    "tar": "^7.4.3",
+    "turndown": "^7.2.1"
+  }
+}
