@@ -1,0 +1,9 @@
+<problem display_name="Q1" markdown="null">
+<multiplechoiceresponse>
+<label>What is the main difference between weather and climate?</label>
+<choicegroup type="MultipleChoice">
+    <choice correct="false">Weather refers to long-term weather patterns while climate describes short-term atmospheric conditions</choice>
+    <choice correct="true">Weather refers to short-term atmospheric conditions while climate describes long-term weather patterns</choice>
+  </choicegroup>
+</multiplechoiceresponse>
+</problem>

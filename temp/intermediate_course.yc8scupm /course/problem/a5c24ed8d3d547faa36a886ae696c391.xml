@@ -1,0 +1,11 @@
+<problem display_name="Q2" markdown="null">
+<multiplechoiceresponse>
+<label>What is the Fujita scale used for?</label>
+<choicegroup type="MultipleChoice">
+    <choice correct="false">Measuring the intensity of hurricanes </choice>
+    <choice correct="true">Measuring the intensity of tornadoes </choice>
+    <choice correct="false">Measuring the intensity of floods</choice>
+    <choice correct="false">Measuring the intensity of earthquakes </choice>
+  </choicegroup>
+</multiplechoiceresponse>
+</problem>

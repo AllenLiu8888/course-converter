@@ -1,0 +1,11 @@
+<problem display_name="Q4" markdown="null">
+<stringresponse answer="barometer" type="ci">
+<label>What is the name of the instrument used to measure atmospheric pressure?</label>
+<correcthint>You can specify optional feedback like this, which appears after this answer is submitted.</correcthint>
+  <additional_answer answer="Barometer"/>
+  <textline size="20"/>
+</stringresponse>
+<demandhint>
+  <hint>It starts with "b" and is essential for forecasting weather changes.</hint>
+</demandhint>
+</problem>

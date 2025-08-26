@@ -1,0 +1,12 @@
+<problem display_name="Q1" markdown="null">
+<multiplechoiceresponse>
+<label>What is the main difference between a hurricane and a tornado?</label>
+<description>You can add an optional tip or note related to the prompt like this. </description>
+<choicegroup type="MultipleChoice">
+    <choice correct="false">A hurricane is larger than a tornado </choice>
+    <choice correct="true">A hurricane forms over water while a tornado forms over land </choice>
+    <choice correct="false">A tornado is larger than a hurricane</choice>
+    <choice correct="false">A tornado forms over water while a hurricane forms over land </choice>
+  </choicegroup>
+</multiplechoiceresponse>
+</problem>

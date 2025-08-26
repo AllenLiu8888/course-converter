@@ -1,0 +1,12 @@
+<problem display_name="Q1" markdown="null">
+<optionresponse>
+<label>What is the name of the instrument used to measure wind speed?</label>
+<description>You can add an optional tip or note related to the prompt like this. </description>
+<optioninput>
+    <option correct="False">Barometer</option>
+    <option correct="True">Anemometer</option>
+    <option correct="False">Hygrometer</option>
+    <option correct="False">Thermometer</option>
+  </optioninput>
+</optionresponse>
+</problem>

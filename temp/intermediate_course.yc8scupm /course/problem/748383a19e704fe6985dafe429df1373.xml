@@ -1,0 +1,11 @@
+<problem display_name="Q3" markdown="null">
+<choiceresponse>
+<label>What are the conditions necessary for a hurricane to form?</label>
+<checkboxgroup>
+    <choice correct="true">Low atmospheric pressure</choice>
+    <choice correct="false">High atmospheric pressure </choice>
+    <choice correct="false">Cool water</choice>
+    <choice correct="true">Warm water </choice>
+  </checkboxgroup>
+</choiceresponse>
+</problem>
