@@ -516,7 +516,7 @@ function printCourseTree(courseTree) {
  * processCourses(['course1.tar.gz', 'course2.tar.gz']);
  */
 async function processCourses(tarGzFiles) {
-  console.log('📦 Processing courses...');
+  console.log('Processing courses...');
   
   const extractedDirs = [];
   const parsedSummaries = [];
@@ -528,7 +528,7 @@ async function processCourses(tarGzFiles) {
     const file = tarGzFiles[i];
     const fileName = path.basename(file, '.tar.gz');
     
-    console.log(`\n📦 Processing course ${i + 1}/${tarGzFiles.length}: ${fileName}`);
+    console.log(`Processing course ${i + 1}/${tarGzFiles.length}: ${fileName}`);
     
     try {
       // Extract course file
@@ -536,7 +536,7 @@ async function processCourses(tarGzFiles) {
       const extractedDir = await extractCourse(file);
       extractedDirs.push({ fileName, extractedDir });
       
-      console.log(`✅ Successfully extracted: ${fileName}`);
+      console.log(`Successfully extracted: ${fileName}`);
       
       // Resolve course root and build course tree (parse structure)
       // CN: 解析课程根目录并构建课程树（解析结构）
@@ -546,7 +546,7 @@ async function processCourses(tarGzFiles) {
       trees.push({ fileName, tree: courseTree });
       
     } catch (error) {
-      console.error(`❌ Failed to extract ${fileName}: ${error.message}`);
+      console.error(`Failed to extract ${fileName}: ${error.message}`);
       if (options.verbose) {
         console.error(error.stack);
       }
@@ -555,21 +555,21 @@ async function processCourses(tarGzFiles) {
   
   // Report parsing summary
   // CN: 输出解析摘要
-  console.log(`\n📝 Extracted ${extractedDirs.length} courses successfully`);
+  console.log(`\n Extracted ${extractedDirs.length} courses successfully`);
   if (parsedSummaries.length > 0) {
-    console.log('🧭 Parsed course structures:');
+    console.log('Parsed course structures:');
     parsedSummaries.forEach((s, idx) => {
       console.log(`   ${idx + 1}. ${s.fileName} → "${s.title}" (chapters: ${s.chapters})`);
     });
   }
   if (options.printTree && trees.length > 0) {
-    console.log('\n🌳 Course Trees:');
+    console.log('\nCourse Trees:');
     trees.forEach(({ fileName, tree }, idx) => {
       console.log(`\n#${idx + 1} ${fileName}`);
       printCourseTree(tree);
     });
   }
-  console.log('📝 Next step: Transform components to LiaScript Markdown');
+  console.log('Next step: Transform components to LiaScript Markdown');
   
   // Do not clean temp in this run; keep files for inspection
   // CN: 本次进程内不清理 temp，保留供检查
