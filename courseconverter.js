@@ -11,6 +11,7 @@ import { fileURLToPath } from 'url';
 import { program } from 'commander';
 import * as tar from 'tar';
 import { XMLParser } from 'fast-xml-parser';
+import NodeHtmlMarkdown from 'node-html-markdown';
 
 // Get current file path - ES Modules requirement
 // CN: 获取当前文件路径 - ES Modules 要求
@@ -471,7 +472,7 @@ function collectComponentRefs(verticalNode) {
   return components;
 }
 
-// --------------------------------- parseHtmlComponent ✅ 主动------------------------------------
+// --------------------------------- parseHtmlComponent ✅ 确认html和对应xml文件位置，并且解析所有内容并且返回------------------------------------
 /**
  * Parse HTML component content
  * CN: 解析 HTML 组件内容
@@ -514,16 +515,16 @@ function parseHtmlComponent(courseRoot, componentId) {
   };
 }
 
-// --------------------------------- renderHtmlContent ❌ -------------------------------------
+// --------------------------------- renderHtmlContent ✅ 将 HTML 内容转换为 LiaScript Markdown 格式-------------------------------------
 /**
  * Render HTML content to LiaScript Markdown
  * CN: 将 HTML 内容渲染为 LiaScript Markdown
  * @param {Object} htmlIR - HTML component intermediate representation
  * @returns {string} - LiaScript Markdown content
- * @description Converts HTML content to LiaScript Markdown format
+ * @description Converts HTML content to LiaScript Markdown format using node-html-markdown
  * @example
  * const markdown = renderHtmlContent(htmlData);
- * Returns: "# HTML Content\n\n<p>Hello World</p>"
+ * Returns: "# HTML Content\n\nHello World"
  */
 function renderHtmlContent(htmlIR) {
   // CN: 验证输入数据
@@ -534,48 +535,28 @@ function renderHtmlContent(htmlIR) {
   // CN: 提取 HTML 内容
   const htmlContent = htmlIR.content;
   
-  // CN: 简单的 HTML 到 Markdown 转换
-  // 注意：这里使用简单的字符串替换，实际项目中可能需要更复杂的 HTML 解析器
-  let markdown = htmlContent;
-  
-  // CN: 转换常见的 HTML 标签
-  markdown = markdown
-    // 处理 <strong> 标签
-    .replace(/<strong>(.*?)<\/strong>/g, '**$1**')
-    // 处理 <em> 标签
-    .replace(/<em>(.*?)<\/em>/g, '*$1*')
-    // 处理 <br /> 标签
-    .replace(/<br\s*\/?>/gi, '\n')
-    // 处理 <p> 标签
-    .replace(/<p>(.*?)<\/p>/g, '$1\n\n')
-    // 处理 <h1> 到 <h6> 标签
-    .replace(/<h1>(.*?)<\/h1>/g, '# $1\n\n')
-    .replace(/<h2>(.*?)<\/h2>/g, '## $1\n\n')
-    .replace(/<h3>(.*?)<\/h3>/g, '### $1\n\n')
-    .replace(/<h4>(.*?)<\/h4>/g, '#### $1\n\n')
-    .replace(/<h5>(.*?)<\/h5>/g, '##### $1\n\n')
-    .replace(/<h6>(.*?)<\/h6>/g, '###### $1\n\n')
-    // 处理 <ul> 和 <li> 标签
-    .replace(/<ul>(.*?)<\/ul>/gs, (match, content) => {
-      return content.replace(/<li>(.*?)<\/li>/g, '- $1\n') + '\n';
-    })
-    // 处理 <ol> 和 <li> 标签
-    .replace(/<ol>(.*?)<\/ol>/gs, (match, content) => {
-      let counter = 1;
-      return content.replace(/<li>(.*?)<\/li>/g, () => `${counter++}. $1\n`) + '\n';
-    })
-    // 处理 <a> 标签
-    .replace(/<a\s+href="([^"]*)"[^>]*>(.*?)<\/a>/g, '[$2]($1)')
-    // 清理多余的空白字符
-    .replace(/\n\s*\n\s*\n/g, '\n\n')
-    .trim();
+  // CN: 使用 node-html-markdown 进行转换
+  const markdown = NodeHtmlMarkdown.translate(htmlContent, {
+    // CN: 配置选项
+    bulletListMarker: '-',           // CN: 无序列表标记
+    codeFence: '```',                // CN: 代码块标记
+    emDelimiter: '*',                // CN: 斜体标记
+    fence: '```',                    // CN: 代码块围栏
+    headingStyle: 'atx',             // CN: 标题样式使用 # 标记
+    hr: '---',                       // CN: 水平分割线
+    strongDelimiter: '**',           // CN: 粗体标记
+    textReplace: [                   // CN: 文本替换规则
+      [/\s+/g, ' '],                 // CN: 合并多个空格
+      [/\n\s*\n\s*\n/g, '\n\n']      // CN: 清理多余空行
+    ]
+  });
   
   // CN: 如果内容为空，返回默认文本
   if (!markdown || markdown.trim() === '') {
-    markdown = '*No content available*';
+    return '*No content available*';
   }
   
-  return markdown;
+  return markdown.trim();
 }
 
 // --------------------------------- parseComponent ❌ -------------------------------------
