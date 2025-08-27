@@ -471,6 +471,234 @@ function collectComponentRefs(verticalNode) {
   return components;
 }
 
+// --------------------------------- parseHtmlComponent ✅ 主动------------------------------------
+/**
+ * Parse HTML component content
+ * CN: 解析 HTML 组件内容
+ * @param {string} courseRoot - Course root directory path
+ * @param {string} componentId - Component ID (filename without extension)
+ * @returns {Object} - Parsed HTML component data
+ * @description Reads HTML component XML and HTML files, extracts content
+ * @throws {Error} When component files are not found
+ * @example
+ * const htmlData = parseHtmlComponent('/temp/course1', 'content1');
+ * Returns: { type: 'html', content: '<p>Hello World</p>', filename: 'content1' }
+ */
+function parseHtmlComponent(courseRoot, componentId) {
+  // CN: 构建 HTML 组件的 XML 和 HTML 文件路径
+  const htmlXmlPath = path.join(courseRoot, 'html', `${componentId}.xml`);
+  const htmlContentPath = path.join(courseRoot, 'html', `${componentId}.html`);
+  
+  // CN: 检查文件是否存在
+  if (!fs.existsSync(htmlXmlPath)) {
+    throw new Error(`HTML component XML not found: ${htmlXmlPath}`);
+  }
+  
+  if (!fs.existsSync(htmlContentPath)) {
+    throw new Error(`HTML component content not found: ${htmlContentPath}`);
+  }
+  
+  // CN: 读取 HTML 内容
+  const htmlContent = fs.readFileSync(htmlContentPath, 'utf8');
+  
+  // CN: 解析 XML 文件（虽然当前只有 filename 属性，但保持一致性）
+  const xmlObj = readXmlAsObject(htmlXmlPath);
+  const xmlNode = xmlObj.html || xmlObj.HTML || {};
+  
+  // CN: 返回解析后的 HTML 组件数据
+  return {
+    type: 'html',
+    content: htmlContent,
+    filename: componentId,
+    displayName: xmlNode['@_display_name'] || componentId
+  };
+}
+
+// --------------------------------- renderHtmlContent ❌ -------------------------------------
+/**
+ * Render HTML content to LiaScript Markdown
+ * CN: 将 HTML 内容渲染为 LiaScript Markdown
+ * @param {Object} htmlIR - HTML component intermediate representation
+ * @returns {string} - LiaScript Markdown content
+ * @description Converts HTML content to LiaScript Markdown format
+ * @example
+ * const markdown = renderHtmlContent(htmlData);
+ * Returns: "# HTML Content\n\n<p>Hello World</p>"
+ */
+function renderHtmlContent(htmlIR) {
+  // CN: 验证输入数据
+  if (!htmlIR || htmlIR.type !== 'html') {
+    throw new Error('Invalid HTML component data');
+  }
+  
+  // CN: 提取 HTML 内容
+  const htmlContent = htmlIR.content;
+  
+  // CN: 简单的 HTML 到 Markdown 转换
+  // 注意：这里使用简单的字符串替换，实际项目中可能需要更复杂的 HTML 解析器
+  let markdown = htmlContent;
+  
+  // CN: 转换常见的 HTML 标签
+  markdown = markdown
+    // 处理 <strong> 标签
+    .replace(/<strong>(.*?)<\/strong>/g, '**$1**')
+    // 处理 <em> 标签
+    .replace(/<em>(.*?)<\/em>/g, '*$1*')
+    // 处理 <br /> 标签
+    .replace(/<br\s*\/?>/gi, '\n')
+    // 处理 <p> 标签
+    .replace(/<p>(.*?)<\/p>/g, '$1\n\n')
+    // 处理 <h1> 到 <h6> 标签
+    .replace(/<h1>(.*?)<\/h1>/g, '# $1\n\n')
+    .replace(/<h2>(.*?)<\/h2>/g, '## $1\n\n')
+    .replace(/<h3>(.*?)<\/h3>/g, '### $1\n\n')
+    .replace(/<h4>(.*?)<\/h4>/g, '#### $1\n\n')
+    .replace(/<h5>(.*?)<\/h5>/g, '##### $1\n\n')
+    .replace(/<h6>(.*?)<\/h6>/g, '###### $1\n\n')
+    // 处理 <ul> 和 <li> 标签
+    .replace(/<ul>(.*?)<\/ul>/gs, (match, content) => {
+      return content.replace(/<li>(.*?)<\/li>/g, '- $1\n') + '\n';
+    })
+    // 处理 <ol> 和 <li> 标签
+    .replace(/<ol>(.*?)<\/ol>/gs, (match, content) => {
+      let counter = 1;
+      return content.replace(/<li>(.*?)<\/li>/g, () => `${counter++}. $1\n`) + '\n';
+    })
+    // 处理 <a> 标签
+    .replace(/<a\s+href="([^"]*)"[^>]*>(.*?)<\/a>/g, '[$2]($1)')
+    // 清理多余的空白字符
+    .replace(/\n\s*\n\s*\n/g, '\n\n')
+    .trim();
+  
+  // CN: 如果内容为空，返回默认文本
+  if (!markdown || markdown.trim() === '') {
+    markdown = '*No content available*';
+  }
+  
+  return markdown;
+}
+
+// --------------------------------- parseComponent ❌ -------------------------------------
+/**
+ * Parse component content based on type
+ * CN: 根据类型解析组件内容
+ * @param {string} courseRoot - Course root directory path
+ * @param {Object} component - Component reference object
+ * @returns {Object} - Parsed component data
+ * @description Unified entry point for parsing different component types
+ * @throws {Error} When component type is not supported or parsing fails
+ * @example
+ * const componentData = parseComponent('/temp/course1', { kind: 'html', id: 'content1' });
+ * Returns: { type: 'html', content: '...', filename: 'content1' }
+ */
+function parseComponent(courseRoot, component) {
+  // CN: 验证输入参数
+  if (!courseRoot || !component) {
+    throw new Error('Invalid parameters: courseRoot and component are required');
+  }
+  
+  if (!component.kind || !component.id) {
+    throw new Error('Invalid component: kind and id are required');
+  }
+  
+  const { kind, id } = component;
+  
+  // CN: 根据组件类型调用相应的解析函数
+  switch (kind.toLowerCase()) {
+    case 'html':
+      return parseHtmlComponent(courseRoot, id);
+      
+    case 'problem':
+      // TODO: 实现问题组件解析
+      return {
+        type: 'problem',
+        content: `*Problem component not yet implemented: ${id}*`,
+        filename: id,
+        displayName: id
+      };
+      
+    case 'video':
+      // TODO: 实现视频组件解析
+      return {
+        type: 'video',
+        content: `*Video component not yet implemented: ${id}*`,
+        filename: id,
+        displayName: id
+      };
+      
+    case 'about':
+      // TODO: 实现关于组件解析
+      return {
+        type: 'about',
+        content: `*About component not yet implemented: ${id}*`,
+        filename: id,
+        displayName: id
+      };
+      
+    default:
+      // CN: 未知组件类型，返回占位符
+      if (options.verbose) {
+        console.warn(`⚠️ Unknown component type: ${kind} (${id})`);
+      }
+      return {
+        type: 'unknown',
+        content: `*Unsupported component type: ${kind} (${id})*`,
+        filename: id,
+        displayName: id
+      };
+  }
+}
+
+// --------------------------------- renderComponent ❌ -------------------------------------
+/**
+ * Render component to LiaScript Markdown
+ * CN: 将组件渲染为 LiaScript Markdown
+ * @param {Object} componentIR - Component intermediate representation
+ * @returns {string} - LiaScript Markdown content
+ * @description Unified entry point for rendering different component types
+ * @throws {Error} When component type is not supported or rendering fails
+ * @example
+ * const markdown = renderComponent(componentData);
+ * Returns: "# Component Title\n\nComponent content in Markdown format"
+ */
+function renderComponent(componentIR) {
+  // CN: 验证输入数据
+  if (!componentIR || !componentIR.type) {
+    throw new Error('Invalid component data: type is required');
+  }
+  
+  const { type } = componentIR;
+  
+  // CN: 根据组件类型调用相应的渲染函数
+  switch (type.toLowerCase()) {
+    case 'html':
+      return renderHtmlContent(componentIR);
+      
+    case 'problem':
+      // TODO: 实现问题组件渲染
+      return `## Problem: ${componentIR.displayName || componentIR.filename}\n\n${componentIR.content}\n\n---\n`;
+      
+    case 'video':
+      // TODO: 实现视频组件渲染
+      return `## Video: ${componentIR.displayName || componentIR.filename}\n\n${componentIR.content}\n\n---\n`;
+      
+    case 'about':
+      // TODO: 实现关于组件渲染
+      return `## About: ${componentIR.displayName || componentIR.filename}\n\n${componentIR.content}\n\n---\n`;
+      
+    case 'unknown':
+      // CN: 未知组件类型，返回占位符
+      return `## Unsupported Component: ${componentIR.displayName || componentIR.filename}\n\n${componentIR.content}\n\n---\n`;
+      
+    default:
+      // CN: 未知组件类型，返回错误信息
+      if (options.verbose) {
+        console.warn(`⚠️ Unknown component type for rendering: ${type}`);
+      }
+      return `## Unknown Component Type: ${type}\n\n*Component type "${type}" is not supported for rendering*\n\n---\n`;
+  }
+}
+
 // --------------------------------- buildCourseTree ✅ 打印树，用于测试  -------------------------------------
 function buildCourseTree(courseRoot) {
   const meta = parseCourseXml(courseRoot);
@@ -505,7 +733,7 @@ function printCourseTree(courseTree) {
   console.log(lines.join('\n'));
 }
 
-// --------------------------------- processCourses ❌ -------------------------------------
+// --------------------------------- processCourses ✅ -------------------------------------
 
 /**
  * Process course files (extract and prepare for conversion)
@@ -600,13 +828,161 @@ function displayResults(tarGzFiles) {
   console.log('📝 Next step: Implement course extraction and conversion');
 }
 
+// --------------------------------- transformCourseToMarkdown ❌ -------------------------------------
+/**
+ * Transform course tree to LiaScript Markdown
+ * CN: 将课程树转换为 LiaScript Markdown
+ * @param {Object} courseTree - Course tree structure
+ * @param {string} courseRoot - Course root directory path
+ * @returns {string} - Complete LiaScript Markdown content
+ * @description Converts complete course structure to LiaScript Markdown format
+ * @throws {Error} When transformation fails
+ * @example
+ * const markdown = transformCourseToMarkdown(courseTree, '/temp/course1');
+ * Returns: "# Course Title\n\n## Chapter 1\n\n### Unit 1\n\nComponent content..."
+ */
+function transformCourseToMarkdown(courseTree, courseRoot) {
+  // CN: 验证输入参数
+  if (!courseTree || !courseTree.title || !courseTree.chapters) {
+    throw new Error('Invalid course tree: title and chapters are required');
+  }
+  
+  if (!courseRoot) {
+    throw new Error('Course root directory is required');
+  }
+  
+  const lines = [];
+  
+  // CN: 添加课程标题
+  lines.push(`# ${courseTree.title}\n`);
+  
+  // CN: 添加课程元数据
+  lines.push(`**Course ID:** ${courseTree.id}\n`);
+  lines.push(`**Total Chapters:** ${courseTree.chapters.length}\n\n`);
+  lines.push('---\n');
+  
+  // CN: 递归处理每个章节
+  courseTree.chapters.forEach((chapter, chapterIndex) => {
+    lines.push(transformChapterToMarkdown(chapter, chapterIndex + 1, courseRoot));
+  });
+  
+  // CN: 添加课程结束标记
+  lines.push('\n---\n');
+  lines.push('*Course conversion completed*\n');
+  
+  return lines.join('\n');
+}
 
+// --------------------------------- transformChapterToMarkdown ❌ -------------------------------------
+/**
+ * Transform chapter to Markdown
+ * CN: 将章节转换为 Markdown
+ * @param {Object} chapter - Chapter object
+ * @param {number} chapterNumber - Chapter number
+ * @param {string} courseRoot - Course root directory path
+ * @returns {string} - Chapter Markdown content
+ * @description Converts chapter structure to Markdown format
+ */
+function transformChapterToMarkdown(chapter, chapterNumber, courseRoot) {
+  const lines = [];
+  
+  // CN: 添加章节标题
+  lines.push(`## ${chapterNumber}. ${chapter.title}\n`);
+  
+  // CN: 添加章节元数据
+  lines.push(`**Chapter ID:** ${chapter.id}\n`);
+  lines.push(`**Total Units:** ${chapter.sequentials.length}\n\n`);
+  
+  // CN: 处理每个序列（单元）
+  chapter.sequentials.forEach((sequential, sequentialIndex) => {
+    lines.push(transformSequentialToMarkdown(sequential, sequentialIndex + 1, courseRoot));
+  });
+  
+  // CN: 添加章节分隔线
+  lines.push('\n---\n');
+  
+  return lines.join('\n');
+}
 
+// --------------------------------- transformSequentialToMarkdown ❌ -------------------------------------
+/**
+ * Transform sequential (unit) to Markdown
+ * CN: 将序列（单元）转换为 Markdown
+ * @param {Object} sequential - Sequential object
+ * @param {number} sequentialNumber - Sequential number
+ * @param {string} courseRoot - Course root directory path
+ * @returns {string} - Sequential Markdown content
+ * @description Converts sequential structure to Markdown format
+ */
+function transformSequentialToMarkdown(sequential, sequentialNumber, courseRoot) {
+  const lines = [];
+  
+  // CN: 添加单元标题
+  lines.push(`### ${sequentialNumber}. ${sequential.title}\n`);
+  
+  // CN: 添加单元元数据
+  lines.push(`**Unit ID:** ${sequential.id}\n`);
+  lines.push(`**Total Verticals:** ${sequential.verticals.length}\n\n`);
+  
+  // CN: 处理每个垂直单元
+  sequential.verticals.forEach((vertical, verticalIndex) => {
+    lines.push(transformVerticalToMarkdown(vertical, verticalIndex + 1, courseRoot));
+  });
+  
+  // CN: 添加单元分隔线
+  lines.push('\n---\n');
+  
+  return lines.join('\n');
+}
 
-
-
-
-
+// --------------------------------- transformVerticalToMarkdown ❌ -------------------------------------
+/**
+ * Transform vertical to Markdown
+ * CN: 将垂直单元转换为 Markdown
+ * @param {Object} vertical - Vertical object
+ * @param {number} verticalNumber - Vertical number
+ * @param {string} courseRoot - Course root directory path
+ * @returns {string} - Vertical Markdown content
+ * @description Converts vertical structure to Markdown format
+ */
+function transformVerticalToMarkdown(vertical, verticalNumber, courseRoot) {
+  const lines = [];
+  
+  // CN: 添加垂直单元标题
+  lines.push(`#### ${verticalNumber}. ${vertical.title}\n`);
+  
+  // CN: 添加垂直单元元数据
+  lines.push(`**Vertical ID:** ${vertical.id}\n`);
+  lines.push(`**Total Components:** ${vertical.components.length}\n\n`);
+  
+  // CN: 处理每个组件
+  vertical.components.forEach((component, componentIndex) => {
+    try {
+      // CN: 解析组件内容
+      const componentIR = parseComponent(courseRoot, component);
+      
+      // CN: 渲染组件为 Markdown
+      const componentMarkdown = renderComponent(componentIR);
+      
+      // CN: 添加组件内容
+      lines.push(componentMarkdown);
+      
+    } catch (error) {
+      // CN: 组件处理失败，添加错误信息
+      if (options.verbose) {
+        console.warn(`⚠️ Failed to process component ${component.kind} (${component.id}): ${error.message}`);
+      }
+      
+      lines.push(`#### Component ${componentIndex + 1}: ${component.kind} (${component.id})\n`);
+      lines.push(`*Error processing component: ${error.message}*\n\n---\n`);
+    }
+  });
+  
+  // CN: 添加垂直单元分隔线
+  lines.push('\n---\n');
+  
+  return lines.join('\n');
+}
 
 
 // ------------------------------------- Main -----------------------------------------
