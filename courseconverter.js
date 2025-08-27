@@ -320,76 +320,6 @@ function cleanupTempFiles(tempDir) {
   }
 }
 
-// --------------------------------- processCourses ❌ -------------------------------------
-
-/**
- * Process course files (extract and prepare for conversion)
- * CN: 处理课程文件（解压并准备转换）
- * @param {string[]} tarGzFiles - Array of .tar.gz file paths
- * @description Extracts each course file and prepares for conversion
- * @example
- * processCourses(['course1.tar.gz', 'course2.tar.gz']);
- */
-async function processCourses(tarGzFiles) {
-  console.log('📦 Processing courses...');
-  
-  const extractedDirs = [];
-  const parsedSummaries = [];
-  const trees = [];
-  
-  // Process each course file
-  // CN: 处理每个课程文件
-  for (let i = 0; i < tarGzFiles.length; i++) {
-    const file = tarGzFiles[i];
-    const fileName = path.basename(file, '.tar.gz');
-    
-    console.log(`\n📦 Processing course ${i + 1}/${tarGzFiles.length}: ${fileName}`);
-    
-    try {
-      // Extract course file
-      // CN: 解压课程文件
-      const extractedDir = await extractCourse(file);
-      extractedDirs.push({ fileName, extractedDir });
-      
-      console.log(`✅ Successfully extracted: ${fileName}`);
-      
-      // Resolve course root and build course tree (parse structure)
-      // CN: 解析课程根目录并构建课程树（解析结构）
-      const courseRoot = resolveCourseRoot(extractedDir);
-      const courseTree = buildCourseTree(courseRoot);
-      parsedSummaries.push({ fileName, title: courseTree.title, chapters: courseTree.chapters.length });
-      trees.push({ fileName, tree: courseTree });
-      
-    } catch (error) {
-      console.error(`❌ Failed to extract ${fileName}: ${error.message}`);
-      if (options.verbose) {
-        console.error(error.stack);
-      }
-    }
-  }
-  
-  // Report parsing summary
-  // CN: 输出解析摘要
-  console.log(`\n📝 Extracted ${extractedDirs.length} courses successfully`);
-  if (parsedSummaries.length > 0) {
-    console.log('🧭 Parsed course structures:');
-    parsedSummaries.forEach((s, idx) => {
-      console.log(`   ${idx + 1}. ${s.fileName} → "${s.title}" (chapters: ${s.chapters})`);
-    });
-  }
-  if (options.printTree && trees.length > 0) {
-    console.log('\n🌳 Course Trees:');
-    trees.forEach(({ fileName, tree }, idx) => {
-      console.log(`\n#${idx + 1} ${fileName}`);
-      printCourseTree(tree);
-    });
-  }
-  console.log('📝 Next step: Transform components to LiaScript Markdown');
-  
-  // Do not clean temp in this run; keep files for inspection
-  // CN: 本次进程内不清理 temp，保留供检查
-}
-
 // --------------------------------- 引入Xml解析器，并且使用特殊符号区分子元素和属性 createXmlParser ✅ -------------------------------------
 /**
  * Create XML parser instance
@@ -525,10 +455,11 @@ function parseVerticals(courseRoot, verticalRefs) {
   });
 }
 
-// --------------------------------- collectComponentRefs ✅ -------------------------------------
+// --------------------------------- collectComponentRefs ✅ 通过遍历各种组件类型，得到所有的组件details -------------------------------------
 function collectComponentRefs(verticalNode) {
   const components = [];
   const knownKinds = ['html', 'problem', 'video', 'about'];
+  
   for (const kind of knownKinds) {
     const items = toArray(verticalNode[kind] || verticalNode[kind.toUpperCase()] || []);
     for (const it of items) {
@@ -536,24 +467,18 @@ function collectComponentRefs(verticalNode) {
       components.push({ kind, id: id || 'unknown' });
     }
   }
-  // Fallback: if xblock-style children exist
-  const xblocks = toArray(verticalNode.xblock || verticalNode.XBLOCK || []);
-  for (const xb of xblocks) {
-    const kind = xb['@_xblock-family'] || xb['@_category'] || 'unknown';
-    const id = xb['@_url_name'] || xb['@_url'] || 'unknown';
-    components.push({ kind, id });
-  }
+  
   return components;
 }
 
-// --------------------------------- buildCourseTree ✅ -------------------------------------
+// --------------------------------- buildCourseTree ✅ 打印树，用于测试  -------------------------------------
 function buildCourseTree(courseRoot) {
   const meta = parseCourseXml(courseRoot);
   const chapters = parseChapters(courseRoot, meta.chapterRefs);
   return { id: meta.courseId, title: meta.title, chapters };
 }
 
-// --------------------------------- printCourseTree ✅ -------------------------------------
+// --------------------------------- printCourseTree ✅ 打印树，用于测试  -------------------------------------
 /**
  * Pretty print course tree to stdout
  * CN: 以树形打印课程结构
@@ -580,9 +505,75 @@ function printCourseTree(courseTree) {
   console.log(lines.join('\n'));
 }
 
+// --------------------------------- processCourses ❌ -------------------------------------
 
-
-
+/**
+ * Process course files (extract and prepare for conversion)
+ * CN: 处理课程文件（解压并准备转换）
+ * @param {string[]} tarGzFiles - Array of .tar.gz file paths
+ * @description Extracts each course file and prepares for conversion
+ * @example
+ * processCourses(['course1.tar.gz', 'course2.tar.gz']);
+ */
+async function processCourses(tarGzFiles) {
+  console.log('📦 Processing courses...');
+  
+  const extractedDirs = [];
+  const parsedSummaries = [];
+  const trees = [];
+  
+  // Process each course file
+  // CN: 处理每个课程文件
+  for (let i = 0; i < tarGzFiles.length; i++) {
+    const file = tarGzFiles[i];
+    const fileName = path.basename(file, '.tar.gz');
+    
+    console.log(`\n📦 Processing course ${i + 1}/${tarGzFiles.length}: ${fileName}`);
+    
+    try {
+      // Extract course file
+      // CN: 解压课程文件
+      const extractedDir = await extractCourse(file);
+      extractedDirs.push({ fileName, extractedDir });
+      
+      console.log(`✅ Successfully extracted: ${fileName}`);
+      
+      // Resolve course root and build course tree (parse structure)
+      // CN: 解析课程根目录并构建课程树（解析结构）
+      const courseRoot = resolveCourseRoot(extractedDir);
+      const courseTree = buildCourseTree(courseRoot);
+      parsedSummaries.push({ fileName, title: courseTree.title, chapters: courseTree.chapters.length });
+      trees.push({ fileName, tree: courseTree });
+      
+    } catch (error) {
+      console.error(`❌ Failed to extract ${fileName}: ${error.message}`);
+      if (options.verbose) {
+        console.error(error.stack);
+      }
+    }
+  }
+  
+  // Report parsing summary
+  // CN: 输出解析摘要
+  console.log(`\n📝 Extracted ${extractedDirs.length} courses successfully`);
+  if (parsedSummaries.length > 0) {
+    console.log('🧭 Parsed course structures:');
+    parsedSummaries.forEach((s, idx) => {
+      console.log(`   ${idx + 1}. ${s.fileName} → "${s.title}" (chapters: ${s.chapters})`);
+    });
+  }
+  if (options.printTree && trees.length > 0) {
+    console.log('\n🌳 Course Trees:');
+    trees.forEach(({ fileName, tree }, idx) => {
+      console.log(`\n#${idx + 1} ${fileName}`);
+      printCourseTree(tree);
+    });
+  }
+  console.log('📝 Next step: Transform components to LiaScript Markdown');
+  
+  // Do not clean temp in this run; keep files for inspection
+  // CN: 本次进程内不清理 temp，保留供检查
+}
 
 
 // --------------------------------- displayResults ✅ -------------------------------------
