@@ -39,31 +39,16 @@ const [inputPath, outputPath] = program.args;
 
 // Resolve absolute paths
 // CN: 解析绝对路径
-
-// Notes on path.resolve(process.cwd(), inputPath):
-// - Normalize to an absolute path; handles relative paths, '.', '..', and trailing slashes
-// - If inputPath is absolute, it is returned as-is (cwd is ignored)
-// - If inputPath is relative, it is resolved against process.cwd()
-// - Pure string operations: no filesystem access or symlink resolution; use fs.realpathSync(...) for the real path
-// - Passing process.cwd() explicitly improves clarity and guards against later process.chdir(...)
-
-// CN: 关于 path.resolve(process.cwd(), inputPath) 的说明：
-// CN: - 规范化为绝对路径；处理相对路径、.、..、以及尾随斜杠
-// CN: - 若 inputPath 为绝对路径，将原样返回（忽略 cwd）
-// CN: - 若 inputPath 为相对路径，将基于 process.cwd() 解析
-// CN: - 仅字符串运算：不访问文件系统、不解析符号链接；真实路径可用 fs.realpathSync(...)
-// CN: - 显式传入 process.cwd() 更直观，并可避免后续 process.chdir(...) 带来的歧义
-
 const resolvedInputPath = path.resolve(process.cwd(), inputPath);
 const resolvedOutputPath = path.resolve(process.cwd(), outputPath);
 const TEMP_ROOT = path.join(process.cwd(), 'temp');
 
 // ------------------------------------- FUNCTIONS ------------------------------------
 
-// ------------------------------------- displayConfiguration ✅ ------------------------------------
+// ------------------------------------- 调试模式信息显示 displayConfiguration ✅ ------------------------------------
 /**
  * Display configuration information
- * CN: 显示配置信息
+ * CN: 如果是调试模式verbose，则显示配置信息
  * @description Shows current configuration when verbose mode is enabled
  * @example
  * displayConfiguration();
@@ -80,7 +65,7 @@ function displayConfiguration() {
   }
 }
 
-// --------------------------------- prepareTempRoot ✅ -------------------------------------
+// --------------------------------- 初始化Temp文件夹 prepareTempRoot ✅ -------------------------------------
 /**
  * Prepare temp root: clean previous run artifacts and recreate root
  * CN: 准备临时目录：在新进程开始时清理并重建 temp 根目录
@@ -89,17 +74,17 @@ function prepareTempRoot() {
   try {
     if (fs.existsSync(TEMP_ROOT)) {
       fs.rmSync(TEMP_ROOT, { recursive: true, force: true });
-      if (options.verbose) console.log(`🧹 Cleaned temp root: ${TEMP_ROOT}`);
+      if (options.verbose) console.log(`Cleaned temp root: ${TEMP_ROOT}`);
     }
     fs.mkdirSync(TEMP_ROOT, { recursive: true });
-    if (options.verbose) console.log(`📁 Ready temp root: ${TEMP_ROOT}`);
+    if (options.verbose) console.log(`Ready temp root: ${TEMP_ROOT}`);
   } catch (e) {
-    console.error(`❌ Failed to prepare temp root: ${e.message}`);
+    console.error(`Failed to prepare temp root: ${e.message}`);
     process.exit(1);
   }
 }
 
-// --------------------------------- getFileInfo ✅ -------------------------------------
+// --------------------------------- 获取输入，判断是文件还是目录，文件或者内部文件是否是tar.gz结尾 getFileInfo ✅ -------------------------------------
 
 /**
  * Get file information and validate input path
@@ -150,9 +135,9 @@ function getFileInfo(inputPath) {
 
     if (options.verbose && result.isValid) { //CN: 如果verbose为true，则输出找到的.tar.gz文件的数量和文件名
       if (result.files.length === 1) {  //CN: 如果result.files的长度为1，则输出找到的.tar.gz文件的文件名
-        console.log(`📄 Found single .tar.gz file: ${path.basename(result.files[0])}`);
+        console.log(`Found single .tar.gz file: ${path.basename(result.files[0])}`);
       } else { //CN: 如果result.files的长度大于1，则输出找到的.tar.gz文件的数量和文件名
-        console.log(`📁 Found ${result.files.length} .tar.gz files:`);
+        console.log(`Found ${result.files.length} .tar.gz files:`);
         result.files.forEach(file => console.log(`   - ${path.basename(file)}`));
       }
     }
@@ -162,7 +147,7 @@ function getFileInfo(inputPath) {
   return result;
 }
 
-// --------------------------------- validateInputPath ✅ -------------------------------------
+// --------------------------------- 从整个的getFileInfo得到的obj内单独取出是否有效的判断，返回布尔值 validateInputPath ✅ -------------------------------------
 
 /**
  * Validate input path
@@ -177,12 +162,12 @@ function validateInputPath(inputPath) {
     const fileInfo = getFileInfo(inputPath); // from throw error
     return fileInfo.isValid;
   } catch (error) {
-    console.error(`❌ Error: ${error.message}`);
+    console.error(`Error: ${error.message}`);
     return false;
   }
 }
 
-// --------------------------------- getTarGzFiles ✅ -------------------------------------
+// --------------------------------- 从整个的getFileInfo得到的obj内单独取出文件(s) TarGzFiles ✅ -------------------------------------
 
 /**
  * Get list of .tar.gz files to process
@@ -197,7 +182,7 @@ function getTarGzFiles(inputPath) {
   return fileInfo.files;
 }
 
-// --------------------------------- createOutputDirectory ✅ -------------------------------------
+// --------------------------------- 检测是否有output文件夹，如果没有，则创建 createOutputDirectory ✅ -------------------------------------
 
 /**
  * Create output directory structure
@@ -208,27 +193,25 @@ function getTarGzFiles(inputPath) {
  * @example
  * createOutputDirectory('/path/to/output');
  */
-// CN: 逻辑：先判断outputPath是不是一个路径，如果不是就报错，
-// 如果是就创建outputPath对应的目录（递归创建），如果存在就输出已存在
 function createOutputDirectory(outputPath) {
   try {
     if (!fs.existsSync(outputPath)) {
       fs.mkdirSync(outputPath, { recursive: true });
       if (options.verbose) {
-        console.log(`📁 Created output directory: ${outputPath}`);
+        console.log(`Created output directory: ${outputPath}`);
       }
     } else {
       if (options.verbose) {
-        console.log(`📁 Output directory already exists: ${outputPath}`);
+        console.log(`Output directory already exists: ${outputPath}`);
       }
     }
   } catch (error) {
-    console.error(`❌ Error creating output directory: ${error.message}`);
+    console.error(`Error creating output directory: ${error.message}`);
     process.exit(1);
   }
 }
 
-// --------------------------------- validateAndSetup ✅ -------------------------------------
+// --------------------------------- 如果输入的ouput路径正确，则创建输出文件夹 validateAndSetup ✅ -------------------------------------
 
 /**
  * Validate input and setup output directory
@@ -255,12 +238,12 @@ function validateAndSetup() {
   // CN: 获取要处理的文件列表
   const tarGzFiles = getTarGzFiles(resolvedInputPath);
   
-  console.log(`📦 Found ${tarGzFiles.length} course(s) to process`);
+  console.log(`Found ${tarGzFiles.length} course(s) to process`);
   
   return tarGzFiles;
 }
 
-// --------------------------------- extractCourse ✅ -------------------------------------
+// --------------------------------- 创建临时目录，并且使用tar解压拿到的tarGZ文件 extractCourse ✅ -------------------------------------
 
 /**
  * Extract .tar.gz file to temporary directory
@@ -276,7 +259,7 @@ function validateAndSetup() {
 async function extractCourse(tarGzPath) {
   // Create temporary directory for extraction
   // CN: 创建临时目录用于解压
-  const tempDir = path.join(TEMP_ROOT, path.basename(tarGzPath, '.tar.gz'));
+  const tempDir = path.join(TEMP_ROOT, path.basename(tarGzPath, '.tar.gz')); //CN: (路径，要删除的后缀)
   
   // Clean up existing temp directory if it exists
   // CN: 如果临时目录已存在，先清理
@@ -292,13 +275,13 @@ async function extractCourse(tarGzPath) {
     // Extract .tar.gz file using tar library
     // CN: 使用 tar 库解压 .tar.gz 文件
     await tar.extract({
-      file: tarGzPath,
-      cwd: tempDir,
-      strip: 0
+      file: tarGzPath, // 要解压的文件
+      cwd: tempDir, // 解压到哪个目录
+      strip: 0 // 不删除路径层级
     });
     
     if (options.verbose) {
-      console.log(`   📂 Extracted to: ${tempDir}`);
+      console.log(`Extracted to: ${tempDir}`);
     }
     
     return tempDir;
@@ -312,7 +295,7 @@ async function extractCourse(tarGzPath) {
   }
 }
 
-// --------------------------------- cleanupTempFiles ✅ -------------------------------------
+// --------------------------------- 如果Temp文件夹存在，则清理Temp文件夹 cleanupTempFiles ✅ -------------------------------------
 
 /**
  * Clean up temporary extracted files
@@ -327,12 +310,12 @@ function cleanupTempFiles(tempDir) {
     if (fs.existsSync(tempDir)) {
       fs.rmSync(tempDir, { recursive: true, force: true });
       if (options.verbose) {
-        console.log(`   🗑️  Cleaned up: ${tempDir}`);
+        console.log(`Cleaned up: ${tempDir}`);
       }
     }
   } catch (error) {
     if (options.verbose) {
-      console.warn(`   ⚠️  Warning: Could not clean up ${tempDir}: ${error.message}`);
+      console.warn(`Warning: Could not clean up ${tempDir}: ${error.message}`);
     }
   }
 }
@@ -407,16 +390,16 @@ async function processCourses(tarGzFiles) {
   // CN: 本次进程内不清理 temp，保留供检查
 }
 
-// --------------------------------- createXmlParser ❌ -------------------------------------
+// --------------------------------- 引入Xml解析器，并且使用特殊符号区分子元素和属性 createXmlParser ✅ -------------------------------------
 /**
  * Create XML parser instance
  * CN: 创建 XML 解析器实例
  */
 function createXmlParser() {
-  return new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
+  return new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' }); //CN: 区分子元素和属性
 }
 
-// --------------------------------- readXmlAsObject ❌ -------------------------------------
+// --------------------------------- 读取Xml文件，调用解析器分析，输出xml内容用obj呈现 readXmlAsObject ✅ -------------------------------------
 /**
  * Read and parse XML file
  * CN: 读取并解析 XML 文件
@@ -427,7 +410,7 @@ function readXmlAsObject(xmlPath) {
   return parser.parse(xml);
 }
 
-// --------------------------------- toArray ❌ -------------------------------------
+// --------------------------------- 如果元素有单一子元素，内容不会以数组形式呈现，使用需统一为数组呈现 toArray ✅ -------------------------------------
 /**
  * Normalize value to array
  * CN: 将值规范化为数组
