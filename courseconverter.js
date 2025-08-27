@@ -275,9 +275,9 @@ async function extractCourse(tarGzPath) {
     // Extract .tar.gz file using tar library
     // CN: 使用 tar 库解压 .tar.gz 文件
     await tar.extract({
-      file: tarGzPath, // 要解压的文件
-      cwd: tempDir, // 解压到哪个目录
-      strip: 0 // 不删除路径层级
+      file: tarGzPath, // CN: 要解压的文件
+      cwd: tempDir, // CN: 解压到哪个目录
+      strip: 1 // CN: 删除最上层的路径层级（course文件夹） // Del root folder - course
     });
     
     if (options.verbose) {
@@ -420,30 +420,44 @@ function toArray(maybeArray) {
   return Array.isArray(maybeArray) ? maybeArray : [maybeArray];
 }
 
-// --------------------------------- resolveCourseRoot ❌ -------------------------------------
+// --------------------------------- 根据是否可以从课程文件夹找到course.xml，来判断是否是正确的course resolveCourseRoot ✅ -------------------------------------
+/**
+ * Resolve course root directory
+ * CN: 解析课程根目录
+ * @param {string} extractedDir - Path to extracted directory
+ * @returns {string} - Path to course root directory
+ * @description Resolves course root directory from extracted directory
+ * @throws {Error} When course root directory cannot be resolved
+ * @example
+ * const courseRoot = resolveCourseRoot('/path/to/extracted/course/');
+ * Returns: '/path/to/extracted/course/'
+ */
 function resolveCourseRoot(extractedDir) {
-  // CN: 解析课程根目录（优先 extractedDir/course，其次 extractedDir）
-  const candidateA = path.join(extractedDir, 'course', 'course.xml');
-  if (fs.existsSync(candidateA)) return path.dirname(candidateA);
-  const candidateB = path.join(extractedDir, 'course.xml');
-  if (fs.existsSync(candidateB)) return extractedDir;
-  throw new Error(`course.xml not found under ${extractedDir}`);
+  // CN: 解析课程根目录（简化结构：extractedDir/course.xml）
+  const courseXmlPath = path.join(extractedDir, 'course.xml');
+  
+  if (fs.existsSync(courseXmlPath)) {
+    // CN: course.xml 直接在解压目录下
+    return extractedDir;
+  } else {
+    throw new Error(`course.xml not found under ${extractedDir}`);
+  }
 }
 
-// --------------------------------- parseCourseXml ❌ -------------------------------------
+// --------------------------------- 根据coures.xml文件找到root文件夹 coures下的CourseName.xml文件，根据里面的信息得到root信息，并且得到chapterRef内容 parseCourseXml ✅ -------------------------------------
 function parseCourseXml(courseRoot) {
   const courseXmlPath = path.join(courseRoot, 'course.xml');
   if (!fs.existsSync(courseXmlPath)) {
     throw new Error(`course.xml not found at ${courseXmlPath}`);
   }
-  // First stage: read lightweight root to find url_name
+  // 1. Basic root info
   const rootObj = readXmlAsObject(courseXmlPath);
   const rootNode = rootObj.course || rootObj.COURSE || {};
   const urlName = rootNode['@_url_name'];
   const org = rootNode['@_org'];
   const courseCode = rootNode['@_course'];
 
-  // If there is a detailed course file under course/course/<url_name>.xml, read it
+  // 2. Details
   const detailedPath = urlName ? path.join(courseRoot, 'course', `${urlName}.xml`) : null;
   const detailedExists = detailedPath && fs.existsSync(detailedPath);
   const obj = detailedExists ? readXmlAsObject(detailedPath) : rootObj;
@@ -457,12 +471,12 @@ function parseCourseXml(courseRoot) {
   return { title, courseId, chapterRefs };
 }
 
-// --------------------------------- parseChapters ❌ -------------------------------------
+// --------------------------------- parseChapters ✅ 根据ChapterRef内容找到sequentialRef -------------------------------------
 function parseChapters(courseRoot, chapterRefs) {
   return chapterRefs.map(ref => {
     const chapterPath = path.join(courseRoot, 'chapter', `${ref}.xml`);
     if (!fs.existsSync(chapterPath)) {
-      if (options.verbose) console.warn(`⚠️ Missing chapter file: ${chapterPath}`);
+      if (options.verbose) console.warn(`Missing chapter file: ${chapterPath}`);
       return { id: ref, title: `Missing chapter ${ref}`, sequentials: [] };
     }
     const obj = readXmlAsObject(chapterPath);
@@ -476,12 +490,12 @@ function parseChapters(courseRoot, chapterRefs) {
   });
 }
 
-// --------------------------------- parseSequentials ❌ -------------------------------------
+// --------------------------------- parseSequentials ✅ 根据sequentialRef内容找到VerticalsRef -------------------------------------
 function parseSequentials(courseRoot, sequentialRefs) {
   return sequentialRefs.map(ref => {
     const sequentialPath = path.join(courseRoot, 'sequential', `${ref}.xml`);
     if (!fs.existsSync(sequentialPath)) {
-      if (options.verbose) console.warn(`⚠️ Missing sequential file: ${sequentialPath}`);
+      if (options.verbose) console.warn(`Missing sequential file: ${sequentialPath}`);
       return { id: ref, title: `Missing sequential ${ref}`, verticals: [] };
     }
     const obj = readXmlAsObject(sequentialPath);
@@ -495,12 +509,12 @@ function parseSequentials(courseRoot, sequentialRefs) {
   });
 }
 
-// --------------------------------- parseVerticals ❌ -------------------------------------
+// --------------------------------- parseVerticals ✅ 根据VerticalsRef内容找到ComponentRefs -------------------------------------
 function parseVerticals(courseRoot, verticalRefs) {
   return verticalRefs.map(ref => {
     const verticalPath = path.join(courseRoot, 'vertical', `${ref}.xml`);
     if (!fs.existsSync(verticalPath)) {
-      if (options.verbose) console.warn(`⚠️ Missing vertical file: ${verticalPath}`);
+      if (options.verbose) console.warn(`Missing vertical file: ${verticalPath}`);
       return { id: ref, title: `Missing vertical ${ref}`, components: [] };
     }
     const obj = readXmlAsObject(verticalPath);
@@ -511,7 +525,7 @@ function parseVerticals(courseRoot, verticalRefs) {
   });
 }
 
-// --------------------------------- collectComponentRefs ❌ -------------------------------------
+// --------------------------------- collectComponentRefs ✅ -------------------------------------
 function collectComponentRefs(verticalNode) {
   const components = [];
   const knownKinds = ['html', 'problem', 'video', 'about'];
@@ -532,7 +546,7 @@ function collectComponentRefs(verticalNode) {
   return components;
 }
 
-// --------------------------------- buildCourseTree ❌ -------------------------------------
+// --------------------------------- buildCourseTree ✅ -------------------------------------
 function buildCourseTree(courseRoot) {
   const meta = parseCourseXml(courseRoot);
   const chapters = parseChapters(courseRoot, meta.chapterRefs);
