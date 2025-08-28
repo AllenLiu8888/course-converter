@@ -33,10 +33,11 @@ program
   .helpOption('-h, --help', 'Display help information')
   .parse(process.argv);
 
-// Get parsed options
-// CN: 获取解析后的选项
-const options = program.opts();
-const [inputPath, outputPath] = program.args;
+  // ==================== Step 0: Input Files ====================
+  // Get parsed options
+  // CN: 获取解析后的选项
+  const options = program.opts();
+  const [inputPath, outputPath] = program.args;
 
 // Resolve absolute paths
 // CN: 解析绝对路径
@@ -472,7 +473,7 @@ function collectComponentRefs(verticalNode) {
   return components;
 }
 
-// --------------------------------- parseHtmlComponent ✅ 确认html和对应xml文件位置，并且解析所有内容并且返回------------------------------------
+// --------------------------------- parseHtmlComponent ✅ 确认html和对应xml文件位置，并且解析所有内容并且返回，变成统一格式（IR）------------------------------------
 /**
  * Parse HTML component content
  * CN: 解析 HTML 组件内容
@@ -515,7 +516,7 @@ function parseHtmlComponent(courseRoot, componentId) {
   };
 }
 
-// --------------------------------- renderHtmlContent ✅ 将 HTML 内容转换为 LiaScript Markdown 格式-------------------------------------
+// --------------------------------- renderHtmlContent ✅ 将 统一格式的HTML IR 内容转换为 LiaScript Markdown 格式-------------------------------------
 /**
  * Render HTML content to LiaScript Markdown
  * CN: 将 HTML 内容渲染为 LiaScript Markdown
@@ -535,8 +536,11 @@ function renderHtmlContent(htmlIR) {
   // CN: 提取 HTML 内容
   const htmlContent = htmlIR.content;
   
+  // CN: 重写媒体文件路径（在转换前处理）
+  const processedContent = rewriteMediaPaths(htmlContent);
+  
   // CN: 使用 node-html-markdown 进行转换
-  const markdown = NodeHtmlMarkdown.translate(htmlContent, {
+  const markdown = NodeHtmlMarkdown.NodeHtmlMarkdown.translate(processedContent, {
     // CN: 配置选项
     bulletListMarker: '-',           // CN: 无序列表标记
     codeFence: '```',                // CN: 代码块标记
@@ -559,7 +563,15 @@ function renderHtmlContent(htmlIR) {
   return markdown.trim();
 }
 
-// --------------------------------- parseComponent ❌ -------------------------------------
+// --------------------------------- parseProblemComponent ❌❌ 根据problemRef内容找到problem.xml文件，并且解析所有内容并且返回，变成统一格式（IR）------------------------------------
+// --------------------------------- renderProblemComponent ❌❌ 将 统一格式的Problem IR 内容转换为 LiaScript Markdown 格式------------------------------------
+// --------------------------------- parseVideoComponent ❌❌ 根据videoRef内容找到video.xml文件，并且解析所有内容并且返回，变成统一格式（IR）------------------------------------
+// --------------------------------- renderVideoComponent ❌❌ 将 统一格式的Video IR 内容转换为 LiaScript Markdown 格式------------------------------------
+// --------------------------------- parseAboutComponent ❌❌ 根据aboutRef内容找到about.xml文件，并且解析所有内容并且返回，变成统一格式（IR）------------------------------------
+// --------------------------------- renderAboutComponent ❌❌ 将 统一格式的About IR 内容转换为 LiaScript Markdown 格式------------------------------------
+
+
+// --------------------------------- TODO:parseComponent ✅ 判断输入的文件是什么类型，根据不同类型call上面不同类型的解析函数，变成统一格式（IR）-------------------------------------
 /**
  * Parse component content based on type
  * CN: 根据类型解析组件内容
@@ -619,7 +631,7 @@ function parseComponent(courseRoot, component) {
     default:
       // CN: 未知组件类型，返回占位符
       if (options.verbose) {
-        console.warn(`⚠️ Unknown component type: ${kind} (${id})`);
+        console.warn(`Unknown component type: ${kind} (${id})`);
       }
       return {
         type: 'unknown',
@@ -630,7 +642,7 @@ function parseComponent(courseRoot, component) {
   }
 }
 
-// --------------------------------- renderComponent ❌ -------------------------------------
+// --------------------------------- TODO:renderComponent ✅ 根据统一格式的IR内容，根据不同类型call上面不同类型的渲染函数，变成LiaScript Markdown格式-------------------------------------
 /**
  * Render component to LiaScript Markdown
  * CN: 将组件渲染为 LiaScript Markdown
@@ -674,7 +686,7 @@ function renderComponent(componentIR) {
     default:
       // CN: 未知组件类型，返回错误信息
       if (options.verbose) {
-        console.warn(`⚠️ Unknown component type for rendering: ${type}`);
+        console.warn(`Unknown component type for rendering: ${type}`);
       }
       return `## Unknown Component Type: ${type}\n\n*Component type "${type}" is not supported for rendering*\n\n---\n`;
   }
@@ -725,11 +737,13 @@ function printCourseTree(courseTree) {
  * processCourses(['course1.tar.gz', 'course2.tar.gz']);
  */
 async function processCourses(tarGzFiles) {
+    // ==================== Step 0: Input Files ====================
   console.log('Processing courses...');
   
   const extractedDirs = [];
   const parsedSummaries = [];
   const trees = [];
+  const conversionResults = [];
   
   // Process each course file
   // CN: 处理每个课程文件
@@ -740,6 +754,7 @@ async function processCourses(tarGzFiles) {
     console.log(`Processing course ${i + 1}/${tarGzFiles.length}: ${fileName}`);
     
     try {
+      // ==================== Step 1: Extract ====================
       // Extract course file
       // CN: 解压课程文件
       const extractedDir = await extractCourse(file);
@@ -747,6 +762,7 @@ async function processCourses(tarGzFiles) {
       
       console.log(`Successfully extracted: ${fileName}`);
       
+      // ==================== Step 2: Parse Structure ====================
       // Resolve course root and build course tree (parse structure)
       // CN: 解析课程根目录并构建课程树（解析结构）
       const courseRoot = resolveCourseRoot(extractedDir);
@@ -754,14 +770,37 @@ async function processCourses(tarGzFiles) {
       parsedSummaries.push({ fileName, title: courseTree.title, chapters: courseTree.chapters.length });
       trees.push({ fileName, tree: courseTree });
       
+      // ==================== Step 3: Convert to Markdown ====================
+      // Transform course to Markdown
+      // CN: 转换课程为 Markdown
+      console.log(`Converting ${fileName} to LiaScript Markdown...`);
+      const markdownContent = transformCourseToMarkdown(courseTree, courseRoot);
+      
+      // ==================== Step 4: Generate Output Files ====================
+      // Generate output files
+      // CN: 生成输出文件
+      const outputResult = await generateCourseOutput(fileName, markdownContent, courseRoot);
+      conversionResults.push({ fileName, ...outputResult });
+      
+      console.log(`Successfully converted: ${fileName}`);
+      
     } catch (error) {
-      console.error(`Failed to extract ${fileName}: ${error.message}`);
+      console.error(`Failed to process ${fileName}: ${error.message}`);
       if (options.verbose) {
         console.error(error.stack);
       }
+      // CN: 记录失败的处理
+      conversionResults.push({ 
+        fileName, 
+        success: false, 
+        error: error.message,
+        outputPath: null,
+        mediaCount: 0
+      });
     }
   }
   
+  // ==================== Step 5: Display Results ====================
   // Report parsing summary
   // CN: 输出解析摘要
   console.log(`\n Extracted ${extractedDirs.length} courses successfully`);
@@ -771,6 +810,18 @@ async function processCourses(tarGzFiles) {
       console.log(`   ${idx + 1}. ${s.fileName} → "${s.title}" (chapters: ${s.chapters})`);
     });
   }
+  
+  // Report conversion results
+  // CN: 输出转换结果
+  console.log('\nConversion Results:');
+  conversionResults.forEach((result, idx) => {
+    if (result.success) {
+      console.log(`   ${idx + 1}. ${result.fileName} → ${result.outputPath} (${result.mediaCount} media files)`);
+    } else {
+      console.log(`   ${idx + 1}. ${result.fileName} → Failed: ${result.error}`);
+    }
+  });
+  
   if (options.printTree && trees.length > 0) {
     console.log('\nCourse Trees:');
     trees.forEach(({ fileName, tree }, idx) => {
@@ -778,10 +829,187 @@ async function processCourses(tarGzFiles) {
       printCourseTree(tree);
     });
   }
-  console.log('Next step: Transform components to LiaScript Markdown');
   
   // Do not clean temp in this run; keep files for inspection
   // CN: 本次进程内不清理 temp，保留供检查
+}
+
+// --------------------------------- TODO:generateCourseOutput ✅ 生成课程输出文件 -------------------------------------
+/**
+ * Generate course output files
+ * CN: 生成课程输出文件
+ * @param {string} fileName - Course file name
+ * @param {string} markdownContent - Generated Markdown content
+ * @param {string} courseRoot - Course root directory path
+ * @returns {Object} - Output generation result
+ * @description Creates course-specific directory structure and writes course files
+ * @throws {Error} When output generation fails
+ * @example
+ * const result = await generateCourseOutput('course1', markdown, '/temp/course1');
+ * Returns: { success: true, outputPath: '/output/course1', mediaCount: 5 }
+ */
+async function generateCourseOutput(fileName, markdownContent, courseRoot) {
+  try {
+    // CN: 清理文件名，移除末尾空格和特殊字符
+    const cleanFileName = fileName.trim().replace(/\s+$/, '');
+    
+    // CN: 构建课程输出路径（全局输出目录已在 validateAndSetup 中创建）
+    const courseOutputDir = path.join(resolvedOutputPath, cleanFileName);
+    const mediaDir = path.join(courseOutputDir, 'media');
+    
+    // CN: 创建课程特定目录结构
+    fs.mkdirSync(courseOutputDir, { recursive: true });
+    fs.mkdirSync(mediaDir, { recursive: true });
+    
+    // CN: 写入 Markdown 文件
+    const markdownPath = path.join(courseOutputDir, 'course.md');
+    fs.writeFileSync(markdownPath, markdownContent, 'utf8');
+    
+    if (options.verbose) {
+      console.log(`📝 Wrote course.md: ${markdownPath}`);
+    }
+    
+    // CN: 处理媒体文件（TODO: 实现媒体文件处理）
+    const mediaCount = await processMediaFiles(courseRoot, mediaDir);
+    
+    return {
+      success: true,
+      outputPath: courseOutputDir,
+      mediaCount: mediaCount
+    };
+    
+  } catch (error) {
+    throw new Error(`Failed to generate output for ${fileName}: ${error.message}`);
+  }
+}
+
+// --------------------------------- TODO:processMediaFiles ❌ 处理媒体文件 -------------------------------------
+/**
+ * Process and copy media files
+ * CN: 处理并复制媒体文件
+ * @param {string} courseRoot - Course root directory path
+ * @param {string} mediaDir - Media output directory path
+ * @returns {number} - Number of media files processed
+ * @description Copies media files from course to output directory
+ * @example
+ * const count = await processMediaFiles('/temp/course1', '/output/course1/media');
+ * Returns: 5
+ */
+async function processMediaFiles(courseRoot, mediaDir) {
+  try {
+    // CN: 查找所有媒体文件
+    const mediaFiles = await findMediaFiles(courseRoot);
+    
+    // CN: 复制媒体文件到输出目录
+    let copiedCount = 0;
+    for (const mediaFile of mediaFiles) {
+      try {
+        await copyMediaFile(mediaFile, mediaDir);
+        copiedCount++;
+      } catch (error) {
+        if (options.verbose) {
+          console.warn(`⚠️ Failed to copy media file ${mediaFile.relativePath}: ${error.message}`);
+        }
+      }
+    }
+    
+    if (options.verbose && copiedCount > 0) {
+      console.log(`📁 Copied ${copiedCount} media files to: ${mediaDir}`);
+    }
+    
+    return copiedCount;
+  } catch (error) {
+    throw new Error(`Failed to process media files: ${error.message}`);
+  }
+}
+
+/**
+ * CN: 查找课程中的所有媒体文件
+ * @param {string} courseRoot - 课程根目录
+ * @returns {Promise<Array>} 媒体文件信息数组
+ */
+async function findMediaFiles(courseRoot) {
+  const mediaFiles = [];
+  const staticDir = path.join(courseRoot, 'static');
+  
+  if (!fs.existsSync(staticDir)) {
+    return mediaFiles;
+  }
+  
+  // CN: 支持的媒体文件扩展名
+  const mediaExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.mp4', '.avi', '.mov', '.wmv', '.webm'];
+  
+  // CN: 递归查找媒体文件
+  function scanDirectory(dir, relativePath = '') {
+    const items = fs.readdirSync(dir);
+    
+    for (const item of items) {
+      const fullPath = path.join(dir, item);
+      const itemRelativePath = path.join(relativePath, item);
+      const stat = fs.statSync(fullPath);
+      
+      if (stat.isDirectory()) {
+        scanDirectory(fullPath, itemRelativePath);
+      } else if (stat.isFile()) {
+        const ext = path.extname(item).toLowerCase();
+        if (mediaExtensions.includes(ext)) {
+          mediaFiles.push({
+            fullPath,
+            relativePath: itemRelativePath,
+            fileName: item,
+            extension: ext
+          });
+        }
+      }
+    }
+  }
+  
+  scanDirectory(staticDir);
+  return mediaFiles;
+}
+
+/**
+ * CN: 复制单个媒体文件
+ * @param {Object} mediaFile - 媒体文件信息
+ * @param {string} targetDir - 目标目录
+ */
+async function copyMediaFile(mediaFile, targetDir) {
+  const targetPath = path.join(targetDir, mediaFile.fileName);
+  
+  // CN: 确保目标目录存在
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  
+  // CN: 复制文件
+  fs.copyFileSync(mediaFile.fullPath, targetPath);
+  
+  if (options.verbose) {
+    console.log(`📄 Copied: ${mediaFile.relativePath} → ${mediaFile.fileName}`);
+  }
+}
+
+/**
+ * CN: 重写 HTML 中的媒体文件路径
+ * @param {string} htmlContent - HTML 内容
+ * @returns {string} - 处理后的 HTML 内容
+ */
+function rewriteMediaPaths(htmlContent) {
+  if (!htmlContent) {
+    return htmlContent;
+  }
+  
+  // CN: 将 /static/ 路径替换为相对路径 ./media/
+  let processedContent = htmlContent.replace(
+    /src=["']\/static\/([^"']+)["']/g,
+    'src="./media/$1"'
+  );
+  
+  // CN: 处理其他可能的媒体路径格式
+  processedContent = processedContent.replace(
+    /href=["']\/static\/([^"']+)["']/g,
+    'href="./media/$1"'
+  );
+  
+  return processedContent;
 }
 
 
@@ -809,7 +1037,7 @@ function displayResults(tarGzFiles) {
   console.log('📝 Next step: Implement course extraction and conversion');
 }
 
-// --------------------------------- transformCourseToMarkdown ❌ -------------------------------------
+// --------------------------------- transformCourseToMarkdown ✅ 将完整的课程树转换为 LiaScript Markdown 格式-------------------------------------
 /**
  * Transform course tree to LiaScript Markdown
  * CN: 将课程树转换为 LiaScript Markdown
@@ -834,17 +1062,24 @@ function transformCourseToMarkdown(courseTree, courseRoot) {
   
   const lines = [];
   
+  // CN: 添加 LiaScript 元数据头
+  lines.push('---');
+  lines.push('author: Course Converter');
+  lines.push('email: converter@example.com');
+  lines.push('---');
+  lines.push('');
+  
   // CN: 添加课程标题
   lines.push(`# ${courseTree.title}\n`);
   
-  // CN: 添加课程元数据
-  lines.push(`**Course ID:** ${courseTree.id}\n`);
-  lines.push(`**Total Chapters:** ${courseTree.chapters.length}\n\n`);
+  // CN: 添加课程简介（简化元数据）
+  lines.push(`**Course Overview:** This course contains ${courseTree.chapters.length} chapters covering various topics.\n\n`);
   lines.push('---\n');
   
-  // CN: 递归处理每个章节
+  // CN: 遍历处理每个章节
+  // CN: 处理每个章节（使用递归函数）
   courseTree.chapters.forEach((chapter, chapterIndex) => {
-    lines.push(transformChapterToMarkdown(chapter, chapterIndex + 1, courseRoot));
+    lines.push(transformNodeToMarkdown(chapter, chapterIndex + 1, courseRoot, 1));
   });
   
   // CN: 添加课程结束标记
@@ -854,115 +1089,117 @@ function transformCourseToMarkdown(courseTree, courseRoot) {
   return lines.join('\n');
 }
 
-// --------------------------------- transformChapterToMarkdown ❌ -------------------------------------
+// --------------------------------- transformNodeToMarkdown ✅ 递归转换课程结构为 Markdown -------------------------------------
 /**
- * Transform chapter to Markdown
- * CN: 将章节转换为 Markdown
- * @param {Object} chapter - Chapter object
- * @param {number} chapterNumber - Chapter number
+ * Recursively transform course structure to Markdown
+ * CN: 递归转换课程结构为 Markdown
+ * @param {Object} node - Course structure node (chapter/sequential/vertical)
+ * @param {number} nodeNumber - Node number
  * @param {string} courseRoot - Course root directory path
- * @returns {string} - Chapter Markdown content
- * @description Converts chapter structure to Markdown format
+ * @param {number} level - Current nesting level (1=chapter, 2=sequential, 3=vertical)
+ * @returns {string} - Markdown content
+ * @description Converts course structure nodes to Markdown format using recursion
+ * @throws {Error} When node structure is invalid
+ * @example
+ * const markdown = transformNodeToMarkdown(chapter, 1, '/temp/course1', 1);
+ * Returns: "## 1. Chapter Title\n\n**Chapter ID:** chapter1\n\n..."
  */
-function transformChapterToMarkdown(chapter, chapterNumber, courseRoot) {
+function transformNodeToMarkdown(node, nodeNumber, courseRoot, level = 1) { //1=chapter, 2=sequential, 3=vertical
+  // CN: 验证输入参数
+  if (!node || !node.title || !node.id) {
+    throw new Error('Invalid node: title and id are required');
+  }
+  
   const lines = [];
   
-  // CN: 添加章节标题
-  lines.push(`## ${chapterNumber}. ${chapter.title}\n`);
+  // CN: 根据层级确定标题格式和节点类型
+  const titlePrefix = '#'.repeat(level + 1); // ## for chapter, ### for sequential, #### for vertical
+  const nodeType = getNodeType(level);
+  const childrenKey = getChildrenKey(level);
+  const childrenType = getChildrenType(level);
   
-  // CN: 添加章节元数据
-  lines.push(`**Chapter ID:** ${chapter.id}\n`);
-  lines.push(`**Total Units:** ${chapter.sequentials.length}\n\n`);
+  // CN: 添加节点标题（移除序号）
+  lines.push(`${titlePrefix} ${node.title}\n`);
   
-  // CN: 处理每个序列（单元）
-  chapter.sequentials.forEach((sequential, sequentialIndex) => {
-    lines.push(transformSequentialToMarkdown(sequential, sequentialIndex + 1, courseRoot));
-  });
+  // CN: 添加节点简介（简化元数据）
+  if (level === 1) {
+    lines.push(`This chapter contains ${node[childrenKey].length} units covering various aspects of the topic.\n\n`);
+  } else if (level === 2) {
+    lines.push(`This unit contains ${node[childrenKey].length} sections with detailed content.\n\n`);
+  } else if (level === 3) {
+    lines.push(`This section contains ${node[childrenKey].length} components with learning materials.\n\n`);
+  }
   
-  // CN: 添加章节分隔线
-  lines.push('\n---\n');
-  
-  return lines.join('\n');
-}
-
-// --------------------------------- transformSequentialToMarkdown ❌ -------------------------------------
-/**
- * Transform sequential (unit) to Markdown
- * CN: 将序列（单元）转换为 Markdown
- * @param {Object} sequential - Sequential object
- * @param {number} sequentialNumber - Sequential number
- * @param {string} courseRoot - Course root directory path
- * @returns {string} - Sequential Markdown content
- * @description Converts sequential structure to Markdown format
- */
-function transformSequentialToMarkdown(sequential, sequentialNumber, courseRoot) {
-  const lines = [];
-  
-  // CN: 添加单元标题
-  lines.push(`### ${sequentialNumber}. ${sequential.title}\n`);
-  
-  // CN: 添加单元元数据
-  lines.push(`**Unit ID:** ${sequential.id}\n`);
-  lines.push(`**Total Verticals:** ${sequential.verticals.length}\n\n`);
-  
-  // CN: 处理每个垂直单元
-  sequential.verticals.forEach((vertical, verticalIndex) => {
-    lines.push(transformVerticalToMarkdown(vertical, verticalIndex + 1, courseRoot));
-  });
-  
-  // CN: 添加单元分隔线
-  lines.push('\n---\n');
-  
-  return lines.join('\n');
-}
-
-// --------------------------------- transformVerticalToMarkdown ❌ -------------------------------------
-/**
- * Transform vertical to Markdown
- * CN: 将垂直单元转换为 Markdown
- * @param {Object} vertical - Vertical object
- * @param {number} verticalNumber - Vertical number
- * @param {string} courseRoot - Course root directory path
- * @returns {string} - Vertical Markdown content
- * @description Converts vertical structure to Markdown format
- */
-function transformVerticalToMarkdown(vertical, verticalNumber, courseRoot) {
-  const lines = [];
-  
-  // CN: 添加垂直单元标题
-  lines.push(`#### ${verticalNumber}. ${vertical.title}\n`);
-  
-  // CN: 添加垂直单元元数据
-  lines.push(`**Vertical ID:** ${vertical.id}\n`);
-  lines.push(`**Total Components:** ${vertical.components.length}\n\n`);
-  
-  // CN: 处理每个组件
-  vertical.components.forEach((component, componentIndex) => {
-    try {
-      // CN: 解析组件内容
-      const componentIR = parseComponent(courseRoot, component);
-      
-      // CN: 渲染组件为 Markdown
-      const componentMarkdown = renderComponent(componentIR);
-      
-      // CN: 添加组件内容
-      lines.push(componentMarkdown);
-      
-    } catch (error) {
-      // CN: 组件处理失败，添加错误信息
-      if (options.verbose) {
-        console.warn(`⚠️ Failed to process component ${component.kind} (${component.id}): ${error.message}`);
+  // CN: 递归处理子节点或组件
+  if (level < 3) {
+    // CN: 处理章节和序列的子节点（递归）
+    node[childrenKey].forEach((child, childIndex) => {
+      lines.push(transformNodeToMarkdown(child, childIndex + 1, courseRoot, level + 1));
+    });
+  } else {
+    // CN: 处理垂直单元的组件（叶子节点）
+    node.components.forEach((component, componentIndex) => {
+      try {
+        // CN: 解析组件内容
+        const componentIR = parseComponent(courseRoot, component);
+        
+        // CN: 渲染组件为 Markdown
+        const componentMarkdown = renderComponent(componentIR);
+        
+        // CN: 添加组件内容
+        lines.push(componentMarkdown);
+        
+      } catch (error) {
+        // CN: 组件处理失败，添加错误信息
+        if (options.verbose) {
+          console.warn(`⚠️ Failed to process component ${component.kind} (${component.id}): ${error.message}`);
+        }
+        
+        lines.push(`#### Learning Content ${componentIndex + 1}\n`);
+        lines.push(`*Content temporarily unavailable: ${error.message}*\n\n---\n`);
       }
-      
-      lines.push(`#### Component ${componentIndex + 1}: ${component.kind} (${component.id})\n`);
-      lines.push(`*Error processing component: ${error.message}*\n\n---\n`);
-    }
-  });
+    });
+  }
   
-  // CN: 添加垂直单元分隔线
-  lines.push('\n---\n');
+  // CN: 添加分隔线（只在章节级别添加）
+  if (level === 1) {
+    lines.push('\n---\n');
+  }
   
   return lines.join('\n');
+}
+// --------------------------------- transformNodeToMarkdown的辅助函数：获取节点类型信息 -------------------------------------
+/**
+ * Get node type based on level
+ * CN: 根据层级获取节点类型
+ * @param {number} level - Nesting level
+ * @returns {string} - Node type name
+ */
+function getNodeType(level) {
+  const types = ['', 'Chapter', 'Unit', 'Vertical'];
+  return types[level] || 'Node';
+}
+
+/**
+ * Get children key based on level
+ * CN: 根据层级获取子节点键名
+ * @param {number} level - Nesting level
+ * @returns {string} - Children key name
+ */
+function getChildrenKey(level) {
+  const keys = ['', 'sequentials', 'verticals', 'components'];
+  return keys[level] || 'children';
+}
+
+/**
+ * Get children type name based on level
+ * CN: 根据层级获取子节点类型名称
+ * @param {number} level - Nesting level
+ * @returns {string} - Children type name
+ */
+function getChildrenType(level) {
+  const types = ['', 'Units', 'Verticals', 'Components'];
+  return types[level] || 'Children';
 }
 
 
@@ -986,6 +1223,7 @@ async function main() {
     // CN: 验证输入并设置输出
     const tarGzFiles = validateAndSetup();
     
+    // ==================== Execute Complete Flow: Steps 1-5 ====================
     // Process courses
     // CN: 处理课程
     await processCourses(tarGzFiles);
