@@ -29,7 +29,6 @@ program
   .argument('<input>', 'Input path: single .tar.gz file or directory containing multiple courses')
   .argument('<output>', 'Output directory for converted courses')
   .option('-v, --verbose', 'Enable verbose logging')
-  .option('--print-tree', 'Print parsed course structure tree to stdout', false)
   .helpOption('-h, --help', 'Display help information')
   .parse(process.argv);
 
@@ -47,23 +46,10 @@ const TEMP_ROOT = path.join(process.cwd(), 'temp');
 
 // ------------------------------------- FUNCTIONS ------------------------------------
 
-// ------------------------------------- 调试模式信息显示 displayConfiguration ✅ ------------------------------------
-/**
- * Display configuration information
- * CN: 如果是调试模式verbose，则显示配置信息
- * @description Shows current configuration when verbose mode is enabled
- * @example
- * displayConfiguration();
- * Output: 📋 Configuration:
- *           Input: /path/to/input
- *           Output: /path/to/output
- */
+// ------------------------------------- 调试模式信息显示 displayConfiguration ❌ ------------------------------------
 function displayConfiguration() {
   if (options.verbose) {
-    console.log('📋 Configuration:');
-    console.log(`   Input: ${resolvedInputPath}`);
-    console.log(`   Output: ${resolvedOutputPath}`);
-    console.log(`   Verbose: ${options.verbose}`);
+    console.log(`Processing: ${resolvedInputPath} → ${resolvedOutputPath}`);
   }
 }
 
@@ -474,7 +460,7 @@ function collectComponentRefs(verticalNode) {
 }
 
 // ==================== HTML ====================
-// --------------------------------- parseHtmlComponent ✅ 确认html和对应xml文件位置，并且解析所有内容并且返回，变成统一格式（IR）------------------------------------
+// --------------------------------- parseHtmlComponent ✅ 确认html和对应xml文件位置，并且解析所有内容并且返回，变成统一格式（IR）obj------------------------------------
 /**
  * Parse HTML component content
  * CN: 解析 HTML 组件内容
@@ -517,7 +503,7 @@ function parseHtmlComponent(courseRoot, componentId) {
   };
 }
 
-// --------------------------------- renderHtmlContent ✅ 将 统一格式的HTML IR 内容转换为 LiaScript Markdown 格式-------------------------------------
+// --------------------------------- renderHtmlContent ✅ 将 统一格式的HTML IR obj 内容转换为 LiaScript Markdown 格式-------------------------------------
 /**
  * Render HTML content to LiaScript Markdown
  * CN: 将 HTML 内容渲染为 LiaScript Markdown
@@ -669,8 +655,15 @@ function renderMultipleChoiceProblem(content, displayName) {
   
   const multipleChoice = content.multiplechoiceresponse;
   if (multipleChoice) {
-    const label = multipleChoice.label || 'Question';
-    lines.push(`**${label}**\n`);
+    // CN: 如果p标签和label都有则都显示
+    const pContent = multipleChoice.p || '';
+    const labelContent = multipleChoice.label || '';
+    if (pContent) {
+      lines.push(`${pContent}\n`);
+    }
+    if (labelContent) {
+      lines.push(`${labelContent}\n`);
+    }
     
     const choiceGroup = multipleChoice.choicegroup;
     if (choiceGroup && choiceGroup.choice && Array.isArray(choiceGroup.choice)) {
@@ -699,8 +692,15 @@ function renderSelectionProblem(content, displayName) {
   const node = content.optionresponse;
   if (!node) return '';
 
-  const label = node.label || displayName || 'Question';
-  lines.push(`**${label}**\n`);
+  // CN: 如果p标签和label都有则都显示
+  const pContent = node.p || '';
+  const labelContent = node.label || '';
+  if (pContent) {
+    lines.push(`${pContent}\n`);
+  }
+  if (labelContent) {
+    lines.push(`${labelContent}\n`);
+  }
 
   const options = toArray(node.optioninput && node.optioninput.option);
   if (options.length > 0) {
@@ -728,8 +728,15 @@ function renderChoiceProblem(content, displayName) {
   
   const choice = content.choiceresponse;
   if (choice) {
-    const label = choice.label || 'Question';
-    lines.push(`**${label}**\n`);
+    // CN: 如果p标签和label都有则都显示
+    const pContent = choice.p || '';
+    const labelContent = choice.label || '';
+    if (pContent) {
+      lines.push(`${pContent}\n`);
+    }
+    if (labelContent) {
+      lines.push(`${labelContent}\n`);
+    }
     
     const choiceGroup = choice.choicegroup;
     if (choiceGroup && choiceGroup.choice && Array.isArray(choiceGroup.choice)) {
@@ -754,12 +761,15 @@ function renderChoiceProblem(content, displayName) {
  */
 function renderTextInputProblem(content, displayName) {
   const lines = [];
-  // CN: 题干优先使用 <p> 文本，其次回退到 label/displayName
-  const question = (typeof content.p === 'string' ? content.p : '')
-    || (content.stringresponse && content.stringresponse.label) 
-    || displayName 
-    || 'Question';
-  lines.push(`${question}\n`);
+  // CN: 如果p标签和label都有则都显示
+  const pContent = (content.stringresponse && content.stringresponse.p) || '';
+  const labelContent = (content.stringresponse && content.stringresponse.label) || '';
+  if (pContent) {
+    lines.push(`${pContent}\n`);
+  }
+  if (labelContent) {
+    lines.push(`${labelContent}\n`);
+  }
 
   const stringResponse = content.stringresponse;
   if (stringResponse) {
@@ -793,8 +803,15 @@ function renderNumberInputProblem(content, displayName) {
   
   const numericalResponse = content.numericalresponse;
   if (numericalResponse) {
-    const label = numericalResponse.label || 'Number Input Question';
-    lines.push(`**${label}**\n`);
+    // CN: 如果p标签和label都有则都显示
+    const pContent = numericalResponse.p || '';
+    const labelContent = numericalResponse.label || '';
+    if (pContent) {
+      lines.push(`${pContent}\n`);
+    }
+    if (labelContent) {
+      lines.push(`${labelContent}\n`);
+    }
     // CN: 使用 LiaScript 数字输入语法：[[数字]]
     lines.push('    [[Enter a number]]\n');
   }
@@ -813,8 +830,15 @@ function renderFormulaProblem(content, displayName) {
   
   const formulaResponse = content.formularesponse;
   if (formulaResponse) {
-    const label = formulaResponse.label || 'Formula Question';
-    lines.push(`**${label}**\n`);
+    // CN: 如果p标签和label都有则都显示
+    const pContent = formulaResponse.p || '';
+    const labelContent = formulaResponse.label || '';
+    if (pContent) {
+      lines.push(`${pContent}\n`);
+    }
+    if (labelContent) {
+      lines.push(`${labelContent}\n`);
+    }
     // CN: 使用 LiaScript 公式输入语法：[[公式]]
     lines.push('    [[Enter mathematical formula]]\n');
   }
@@ -833,8 +857,15 @@ function renderCodeProblem(content, displayName) {
   
   const codeResponse = content.coderesponse;
   if (codeResponse) {
-    const label = codeResponse.label || 'Code Question';
-    lines.push(`**${label}**\n`);
+    // CN: 如果p标签和label都有则都显示
+    const pContent = codeResponse.p || '';
+    const labelContent = codeResponse.label || '';
+    if (pContent) {
+      lines.push(`${pContent}\n`);
+    }
+    if (labelContent) {
+      lines.push(`${labelContent}\n`);
+    }
     // CN: 使用 LiaScript 代码输入语法
     lines.push('```python\n# Write your code here\n```\n');
   }
@@ -850,7 +881,14 @@ function renderCodeProblem(content, displayName) {
  */
 function renderUnknownProblem(content, displayName) {
   const lines = [];
-  lines.push(`**${displayName}**\n`);
+  // CN: 如果p标签和label都有则都显示
+  const pContent = content.p || '';
+  if (pContent) {
+    lines.push(`${pContent}\n`);
+  }
+  if (displayName) {
+    lines.push(`${displayName}\n`);
+  }
   lines.push('*This problem type is not yet supported.*\n');
   lines.push('```json\n' + JSON.stringify(content, null, 2) + '\n```\n');
   return lines.join('\n');
@@ -1013,7 +1051,7 @@ function renderUnknownVideo(content, displayName) {
   return lines.join('\n');
 }
 // ==================== About ====================
-// --------------------------------- parseAboutComponent ✅ 根据aboutRef内容找到about.xml文件，并且解析所有内容并且返回，变成统一格式（IR）------------------------------------
+// --------------------------------- parseAboutComponent ❌ 根据aboutRef内容找到about.xml文件，并且解析所有内容并且返回，变成统一格式（IR）------------------------------------
 /**
  * CN: 解析 About 组件
  * @param {string} courseRoot - 课程根目录
@@ -1049,7 +1087,7 @@ function parseAboutComponent(courseRoot, component) {
   };
 }
 
-// --------------------------------- renderAboutComponent ✅ 将 统一格式的About IR 内容转换为 LiaScript Markdown 格式------------------------------------
+// --------------------------------- renderAboutComponent ❌ 将 统一格式的About IR 内容转换为 LiaScript Markdown 格式------------------------------------
 /**
  * CN: 渲染 About 组件为 LiaScript Markdown
  * @param {Object} aboutIR - About 组件的中间表示
@@ -1125,7 +1163,7 @@ function renderUnknownAbout(content, displayName) {
 
 
 // ==================== Component Dispatcher ====================
-// --------------------------------- parseComponent ✅ 判断输入的文件是什么类型，根据不同类型call上面不同类型的解析函数，变成统一格式（IR）-------------------------------------
+// --------------------------------- parseComponent ❌ 判断输入的文件是什么类型，根据不同类型call上面不同类型的解析函数，变成统一格式（IR）-------------------------------------
 /**
  * Parse component content based on type
  * CN: 根据类型解析组件内容
@@ -1179,7 +1217,7 @@ function parseComponent(courseRoot, component) {
 }
 
 // ==================== Component Renderer ====================
-// --------------------------------- renderComponent ✅ 根据统一格式的IR内容，根据不同类型call上面不同类型的渲染函数，变成LiaScript Markdown格式-------------------------------------
+// --------------------------------- renderComponent ❌ 根据统一格式的IR内容，根据不同类型call上面不同类型的渲染函数，变成LiaScript Markdown格式-------------------------------------
 /**
  * Render component to LiaScript Markdown
  * CN: 将组件渲染为 LiaScript Markdown
@@ -1227,38 +1265,11 @@ function renderComponent(componentIR) {
 }
 
 // ==================== Course Tree ====================
-// --------------------------------- buildCourseTree ✅ 打印树，用于测试  -------------------------------------
+// --------------------------------- buildCourseTree ❌ 构建课程树  -------------------------------------
 function buildCourseTree(courseRoot) {
   const meta = parseCourseXml(courseRoot);
   const chapters = parseChapters(courseRoot, meta.chapterRefs);
   return { id: meta.courseId, title: meta.title, chapters };
-}
-
-// --------------------------------- printCourseTree ✅ 打印树，用于测试  -------------------------------------
-/**
- * Pretty print course tree to stdout
- * CN: 以树形打印课程结构
- */
-function printCourseTree(courseTree) {
-  const lines = [];
-  lines.push(`${courseTree.title} [${courseTree.id}]`);
-  courseTree.chapters.forEach((ch, i) => {
-    const chPrefix = `  ├─`;
-    lines.push(`${chPrefix} Chapter: ${ch.title} [${ch.id}]`);
-    ch.sequentials.forEach((sq, j) => {
-      const sqPrefix = `  │  ├─`;
-      lines.push(`${sqPrefix} Unit: ${sq.title} [${sq.id}]`);
-      sq.verticals.forEach((vt, k) => {
-        const vtPrefix = `  │  │  ├─`;
-        lines.push(`${vtPrefix} Vertical: ${vt.title} [${vt.id}]`);
-        vt.components.forEach((c, m) => {
-          const cPrefix = `  │  │  │  ├─`;
-          lines.push(`${cPrefix} Component: ${c.kind} (${c.id})`);
-        });
-      });
-    });
-  });
-  console.log(lines.join('\n'));
 }
 
 // ==================== Process Courses ====================
@@ -1322,9 +1333,6 @@ async function processCourses(tarGzFiles) {
       
     } catch (error) {
       console.error(`Failed to process ${fileName}: ${error.message}`);
-      if (options.verbose) {
-        console.error(error.stack);
-      }
       // CN: 记录失败的处理
       conversionResults.push({ 
         fileName, 
@@ -1337,34 +1345,11 @@ async function processCourses(tarGzFiles) {
   }
   
   // ==================== Step 5: Display Results ====================
-  // Report parsing summary
-  // CN: 输出解析摘要
-  console.log(`\n Extracted ${extractedDirs.length} courses successfully`);
-  if (parsedSummaries.length > 0) {
-    console.log('Parsed course structures:');
-    parsedSummaries.forEach((s, idx) => {
-      console.log(`   ${idx + 1}. ${s.fileName} → "${s.title}" (chapters: ${s.chapters})`);
-    });
-  }
+  const successCount = conversionResults.filter(r => r.success).length;
+  const failCount = conversionResults.length - successCount;
+  console.log(`\nConversion completed: ${successCount} successful, ${failCount} failed`);
   
-  // Report conversion results
-  // CN: 输出转换结果
-  console.log('\nConversion Results:');
-  conversionResults.forEach((result, idx) => {
-    if (result.success) {
-      console.log(`   ${idx + 1}. ${result.fileName} → ${result.outputPath} (${result.mediaCount} media files)`);
-    } else {
-      console.log(`   ${idx + 1}. ${result.fileName} → Failed: ${result.error}`);
-    }
-  });
-  
-  if (options.printTree && trees.length > 0) {
-    console.log('\nCourse Trees:');
-    trees.forEach(({ fileName, tree }, idx) => {
-      console.log(`\n#${idx + 1} ${fileName}`);
-      printCourseTree(tree);
-    });
-  }
+
   
   // Do not clean temp in this run; keep files for inspection
   // CN: 本次进程内不清理 temp，保留供检查
@@ -1590,29 +1575,7 @@ function rewriteMediaPaths(htmlContent) {
 }
 
 
-// --------------------------------- displayResults ✅ -------------------------------------
 
-/**
- * Display processing results
- * CN: 显示处理结果
- * @param {string[]} tarGzFiles - Array of .tar.gz file paths
- * @description Shows summary of files to be processed
- * @example
- * displayResults(['course1.tar.gz', 'course2.tar.gz']);
- *  Output: 1. course1 -> /output/course1/
- *          2. course2 -> /output/course2/
- */
-function displayResults(tarGzFiles) {
-  // List files to be processed
-  // CN: 列出要处理的文件
-  tarGzFiles.forEach((file, index) => {
-    const fileName = path.basename(file, '.tar.gz');
-    console.log(`   ${index + 1}. ${fileName} -> ${path.join(resolvedOutputPath, fileName)}/`);
-  });
-  
-  console.log('✅ Input validation and file processing completed');
-  console.log('📝 Next step: Implement course extraction and conversion');
-}
 
 // --------------------------------- transformCourseToMarkdown ✅ 将完整的课程树转换为 LiaScript Markdown 格式-------------------------------------
 /**
@@ -1649,9 +1612,7 @@ function transformCourseToMarkdown(courseTree, courseRoot) {
   // CN: 添加课程标题
   lines.push(`# ${courseTree.title}\n`);
   
-  // CN: 添加课程简介（简化元数据）
-  lines.push(`**Course Overview:** This course contains ${courseTree.chapters.length} chapters covering various topics.\n\n`);
-  lines.push('---\n');
+
   
   // CN: 遍历处理每个章节
   // CN: 处理每个章节（使用递归函数）
@@ -1691,9 +1652,7 @@ function transformNodeToMarkdown(node, nodeNumber, courseRoot, level = 1) { //1=
   
   // CN: 根据层级确定标题格式和节点类型
   const titlePrefix = '#'.repeat(level + 1); // ## for chapter, ### for sequential, #### for vertical
-  const nodeType = getNodeType(level);
-  const childrenKey = getChildrenKey(level);
-  const childrenType = getChildrenType(level);
+  const childrenKey = ['', 'sequentials', 'verticals', 'components'][level] || 'children';
   
   // CN: 渲染标题：Chapter 与 Sequential 输出标题；Vertical 不输出标题（其内容直接并入 Sequential 页面）
   if (level <= 2) {
@@ -1738,39 +1697,7 @@ function transformNodeToMarkdown(node, nodeNumber, courseRoot, level = 1) { //1=
   
   return lines.join('\n');
 }
-// --------------------------------- transformNodeToMarkdown的辅助函数：获取节点类型信息 -------------------------------------
-/**
- * Get node type based on level
- * CN: 根据层级获取节点类型
- * @param {number} level - Nesting level
- * @returns {string} - Node type name
- */
-function getNodeType(level) {
-  const types = ['', 'Chapter', 'Unit', 'Vertical'];
-  return types[level] || 'Node';
-}
 
-/**
- * Get children key based on level
- * CN: 根据层级获取子节点键名
- * @param {number} level - Nesting level
- * @returns {string} - Children key name
- */
-function getChildrenKey(level) {
-  const keys = ['', 'sequentials', 'verticals', 'components'];
-  return keys[level] || 'children';
-}
-
-/**
- * Get children type name based on level
- * CN: 根据层级获取子节点类型名称
- * @param {number} level - Nesting level
- * @returns {string} - Children type name
- */
-function getChildrenType(level) {
-  const types = ['', 'Units', 'Verticals', 'Components'];
-  return types[level] || 'Children';
-}
 
 
 // ------------------------------------- Main -----------------------------------------
@@ -1798,9 +1725,7 @@ async function main() {
     // CN: 处理课程
     await processCourses(tarGzFiles);
     
-    // Display results
-    // CN: 显示结果
-    displayResults(tarGzFiles);
+
     
   } catch (error) {
     console.error(`❌ Fatal error: ${error.message}`);
