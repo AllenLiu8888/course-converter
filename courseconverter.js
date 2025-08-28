@@ -473,6 +473,7 @@ function collectComponentRefs(verticalNode) {
   return components;
 }
 
+// ==================== HTML ====================
 // --------------------------------- parseHtmlComponent ✅ 确认html和对应xml文件位置，并且解析所有内容并且返回，变成统一格式（IR）------------------------------------
 /**
  * Parse HTML component content
@@ -563,15 +564,568 @@ function renderHtmlContent(htmlIR) {
   return markdown.trim();
 }
 
-// --------------------------------- parseProblemComponent ❌❌ 根据problemRef内容找到problem.xml文件，并且解析所有内容并且返回，变成统一格式（IR）------------------------------------
-// --------------------------------- renderProblemComponent ❌❌ 将 统一格式的Problem IR 内容转换为 LiaScript Markdown 格式------------------------------------
-// --------------------------------- parseVideoComponent ❌❌ 根据videoRef内容找到video.xml文件，并且解析所有内容并且返回，变成统一格式（IR）------------------------------------
-// --------------------------------- renderVideoComponent ❌❌ 将 统一格式的Video IR 内容转换为 LiaScript Markdown 格式------------------------------------
-// --------------------------------- parseAboutComponent ❌❌ 根据aboutRef内容找到about.xml文件，并且解析所有内容并且返回，变成统一格式（IR）------------------------------------
-// --------------------------------- renderAboutComponent ❌❌ 将 统一格式的About IR 内容转换为 LiaScript Markdown 格式------------------------------------
+// ==================== Problem ====================
+// --------------------------------- parseProblemComponent ❌ 根据problemRef内容找到problem.xml文件，并且解析所有内容并且返回，变成统一格式（IR）------------------------------------
+/**
+ * CN: 解析 Problem 组件
+ * @param {string} courseRoot - 课程根目录
+ * @param {Object} component - 组件信息
+ * @returns {Object} Problem 组件的中间表示
+ */
+function parseProblemComponent(courseRoot, component) {
+  const { id, displayName } = component;
+  const problemPath = path.join(courseRoot, 'problem', `${id}.xml`);
+  
+  if (!fs.existsSync(problemPath)) {
+    throw new Error(`Problem file not found: ${problemPath}`);
+  }
+  
+  const xmlContent = fs.readFileSync(problemPath, 'utf8');
+  const parsed = readXmlAsObject(problemPath);
+  
+  if (!parsed.problem) {
+    throw new Error(`Invalid problem XML structure: ${id}`);
+  }
+  
+  const problem = parsed.problem;
+  const problemDisplayName = problem['@_display_name'] || displayName || id;
+  
+  return {
+    type: 'problem',
+    content: problem,
+    filename: id,
+    displayName: problemDisplayName,
+    problemType: determineProblemType(problem)
+  };
+}
+
+/**
+ * CN: 确定问题类型
+ * @param {Object} problem - 问题对象
+ * @returns {string} 问题类型
+ */
+function determineProblemType(problem) {
+  if (problem.multiplechoiceresponse) {
+    return 'multiple_choice';
+  } else if (problem.choiceresponse) {
+    return 'choice';
+  } else if (problem.optionresponse) {
+    // CN: 下拉选择题（selection-quiz）
+    return 'selection';
+  } else if (problem.stringresponse) {
+    return 'text_input';
+  } else if (problem.numericalresponse) {
+    return 'number_input';
+  } else if (problem.formularesponse) {
+    return 'formula';
+  } else if (problem.coderesponse) {
+    return 'code';
+  } else {
+    return 'unknown';
+  }
+}
+
+// --------------------------------- renderProblemComponent ❌ 将 统一格式的Problem IR 内容转换为 LiaScript Markdown 格式------------------------------------
+/**
+ * CN: 渲染 Problem 组件为 LiaScript Markdown
+ * @param {Object} problemIR - Problem 组件的中间表示
+ * @returns {string} LiaScript Markdown 内容
+ */
+function renderProblemComponent(problemIR) {
+  if (!problemIR || problemIR.type !== 'problem') {
+    throw new Error('Invalid problem component data');
+  }
+  
+  const { content, displayName, problemType } = problemIR;
+  
+  switch (problemType) {
+    case 'multiple_choice':
+      return renderMultipleChoiceProblem(content, displayName);
+    case 'choice':
+      return renderChoiceProblem(content, displayName);
+    case 'selection':
+      return renderSelectionProblem(content, displayName);
+    case 'text_input':
+      return renderTextInputProblem(content, displayName);
+    case 'number_input':
+      return renderNumberInputProblem(content, displayName);
+    case 'formula':
+      return renderFormulaProblem(content, displayName);
+    case 'code':
+      return renderCodeProblem(content, displayName);
+    default:
+      return renderUnknownProblem(content, displayName);
+  }
+}
+
+/**
+ * CN: 渲染多选题
+ * @param {Object} content - 问题内容
+ * @param {string} displayName - 显示名称
+ * @returns {string} Markdown 内容
+ */
+function renderMultipleChoiceProblem(content, displayName) {
+  const lines = [];
+  
+  const multipleChoice = content.multiplechoiceresponse;
+  if (multipleChoice) {
+    const label = multipleChoice.label || 'Question';
+    lines.push(`**${label}**\n`);
+    
+    const choiceGroup = multipleChoice.choicegroup;
+    if (choiceGroup && choiceGroup.choice && Array.isArray(choiceGroup.choice)) {
+      choiceGroup.choice.forEach((choice, choiceIndex) => {
+        const isCorrect = choice['@_correct'] === 'true';
+        const choiceText = choice['#text'] || choice;
+        // CN: 使用 LiaScript 多选题语法：[[X]] 表示正确答案，[[ ]] 表示错误答案
+        const marker = isCorrect ? '[[X]]' : '[[ ]]';
+        lines.push(`- ${marker} ${choiceText}`);
+      });
+    }
+  }
+  
+  return lines.join('\n');
+}
+
+/**
+ * CN: 渲染下拉选择题（selection-quiz）到 LiaScript 语法
+ * 目标格式：
+ * Question text
+ *
+ * [[ opt1 | ( correct ) | opt3 ]]
+ */
+function renderSelectionProblem(content, displayName) {
+  const lines = [];
+  const node = content.optionresponse;
+  if (!node) return '';
+
+  const label = node.label || displayName || 'Question';
+  lines.push(`**${label}**\n`);
+
+  const options = toArray(node.optioninput && node.optioninput.option);
+  if (options.length > 0) {
+    const rendered = options
+      .map(opt => {
+        const text = (typeof opt === 'string') ? opt : (opt['#text'] || '');
+        const isCorrect = (typeof opt === 'object') && String(opt['@_correct']).toLowerCase() === 'true';
+        return isCorrect ? `( ${text} )` : `${text}`;
+      })
+      .join(' | ');
+    lines.push(`[[ ${rendered} ]]`);
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * CN: 渲染选择题
+ * @param {Object} content - 问题内容
+ * @param {string} displayName - 显示名称
+ * @returns {string} Markdown 内容
+ */
+function renderChoiceProblem(content, displayName) {
+  const lines = [];
+  
+  const choice = content.choiceresponse;
+  if (choice) {
+    const label = choice.label || 'Question';
+    lines.push(`**${label}**\n`);
+    
+    const choiceGroup = choice.choicegroup;
+    if (choiceGroup && choiceGroup.choice && Array.isArray(choiceGroup.choice)) {
+      choiceGroup.choice.forEach((choice, choiceIndex) => {
+        const isCorrect = choice['@_correct'] === 'true';
+        const choiceText = choice['#text'] || choice;
+        // CN: 使用 LiaScript 单选题语法：[(X)] 表示正确答案，[( )] 表示错误答案
+        const marker = isCorrect ? '[(X)]' : '[( )]';
+        lines.push(`- ${marker} ${choiceText}`);
+      });
+    }
+  }
+  
+  return lines.join('\n');
+}
+
+/**
+ * CN: 渲染文本输入题
+ * @param {Object} content - 问题内容
+ * @param {string} displayName - 显示名称
+ * @returns {string} Markdown 内容
+ */
+function renderTextInputProblem(content, displayName) {
+  const lines = [];
+  // CN: 题干优先使用 <p> 文本，其次回退到 label/displayName
+  const question = (typeof content.p === 'string' ? content.p : '')
+    || (content.stringresponse && content.stringresponse.label) 
+    || displayName 
+    || 'Question';
+  lines.push(`${question}\n`);
+
+  const stringResponse = content.stringresponse;
+  if (stringResponse) {
+    // CN: 主答案
+    const primary = (stringResponse['@_answer'] || '').toString().trim();
+    // CN: 追加可接受变体
+    const variants = toArray(stringResponse.additional_answer)
+      .map(v => (typeof v === 'string' ? v : (v['@_answer'] || '')).toString().trim())
+      .filter(Boolean);
+    const allAnswers = [primary, ...variants].filter(Boolean);
+
+    // CN: 输出 LiaScript 文本题：[[ 正确 | 变体1 | 变体2 ]]
+    if (allAnswers.length > 0) {
+      lines.push(`\n    [[${allAnswers.join(' | ')}]]\n`);
+    } else {
+      lines.push(`\n    [[ ]]\n`);
+    }
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * CN: 渲染数字输入题
+ * @param {Object} content - 问题内容
+ * @param {string} displayName - 显示名称
+ * @returns {string} Markdown 内容
+ */
+function renderNumberInputProblem(content, displayName) {
+  const lines = [];
+  
+  const numericalResponse = content.numericalresponse;
+  if (numericalResponse) {
+    const label = numericalResponse.label || 'Number Input Question';
+    lines.push(`**${label}**\n`);
+    // CN: 使用 LiaScript 数字输入语法：[[数字]]
+    lines.push('    [[Enter a number]]\n');
+  }
+  
+  return lines.join('\n');
+}
+
+/**
+ * CN: 渲染公式题
+ * @param {Object} content - 问题内容
+ * @param {string} displayName - 显示名称
+ * @returns {string} Markdown 内容
+ */
+function renderFormulaProblem(content, displayName) {
+  const lines = [];
+  
+  const formulaResponse = content.formularesponse;
+  if (formulaResponse) {
+    const label = formulaResponse.label || 'Formula Question';
+    lines.push(`**${label}**\n`);
+    // CN: 使用 LiaScript 公式输入语法：[[公式]]
+    lines.push('    [[Enter mathematical formula]]\n');
+  }
+  
+  return lines.join('\n');
+}
+
+/**
+ * CN: 渲染代码题
+ * @param {Object} content - 问题内容
+ * @param {string} displayName - 显示名称
+ * @returns {string} Markdown 内容
+ */
+function renderCodeProblem(content, displayName) {
+  const lines = [];
+  
+  const codeResponse = content.coderesponse;
+  if (codeResponse) {
+    const label = codeResponse.label || 'Code Question';
+    lines.push(`**${label}**\n`);
+    // CN: 使用 LiaScript 代码输入语法
+    lines.push('```python\n# Write your code here\n```\n');
+  }
+  
+  return lines.join('\n');
+}
+
+/**
+ * CN: 渲染未知类型问题
+ * @param {Object} content - 问题内容
+ * @param {string} displayName - 显示名称
+ * @returns {string} Markdown 内容
+ */
+function renderUnknownProblem(content, displayName) {
+  const lines = [];
+  lines.push(`**${displayName}**\n`);
+  lines.push('*This problem type is not yet supported.*\n');
+  lines.push('```json\n' + JSON.stringify(content, null, 2) + '\n```\n');
+  return lines.join('\n');
+}
+
+// ==================== Video ====================
+// --------------------------------- parseVideoComponent ❌ 根据videoRef内容找到video.xml文件，并且解析所有内容并且返回，变成统一格式（IR）------------------------------------
+/**
+ * CN: 解析 Video 组件
+ * @param {string} courseRoot - 课程根目录
+ * @param {Object} component - 组件信息
+ * @returns {Object} Video 组件的中间表示
+ */
+function parseVideoComponent(courseRoot, component) {
+  const { id, displayName } = component;
+  const videoPath = path.join(courseRoot, 'video', `${id}.xml`);
+  
+  if (!fs.existsSync(videoPath)) {
+    throw new Error(`Video file not found: ${videoPath}`);
+  }
+  
+  const xmlContent = fs.readFileSync(videoPath, 'utf8');
+  const parsed = readXmlAsObject(videoPath);
+  
+  if (!parsed.video) {
+    throw new Error(`Invalid video XML structure: ${id}`);
+  }
+  
+  const video = parsed.video;
+  const videoDisplayName = video['@_display_name'] || displayName || id;
+  
+  return {
+    type: 'video',
+    content: video,
+    filename: id,
+    displayName: videoDisplayName,
+    videoType: determineVideoType(video)
+  };
+}
+
+/**
+ * CN: 确定视频类型
+ * @param {Object} video - 视频对象
+ * @returns {string} 视频类型
+ */
+function determineVideoType(video) {
+  if (video['@_youtube']) {
+    return 'youtube';
+  } else if (video['@_html5_sources']) {
+    return 'html5';
+  } else if (video['@_url_name']) {
+    return 'external';
+  } else {
+    return 'unknown';
+  }
+}
+
+// --------------------------------- renderVideoComponent ❌ 将 统一格式的Video IR 内容转换为 LiaScript Markdown 格式------------------------------------
+/**
+ * CN: 渲染 Video 组件为 LiaScript Markdown
+ * @param {Object} videoIR - Video 组件的中间表示
+ * @returns {string} LiaScript Markdown 内容
+ */
+function renderVideoComponent(videoIR) {
+  if (!videoIR || videoIR.type !== 'video') {
+    throw new Error('Invalid video component data');
+  }
+  
+  const { content, displayName, videoType } = videoIR;
+  
+  switch (videoType) {
+    case 'youtube':
+      return renderYouTubeVideo(content, displayName);
+    case 'html5':
+      return renderHtml5Video(content, displayName);
+    case 'external':
+      return renderExternalVideo(content, displayName);
+    default:
+      return renderUnknownVideo(content, displayName);
+  }
+}
+
+/**
+ * CN: 渲染 YouTube 视频
+ * @param {Object} content - 视频内容
+ * @param {string} displayName - 显示名称
+ * @returns {string} Markdown 内容
+ */
+function renderYouTubeVideo(content, displayName) {
+  const lines = [];
+  
+  const youtubeAttr = content['@_youtube'];
+  if (youtubeAttr) {
+    // CN: 解析 YouTube 属性，格式通常是 "1.00:VIDEO_ID"
+    const parts = youtubeAttr.split(':');
+    if (parts.length >= 2) {
+      const videoId = parts[1];
+      lines.push(`**${displayName}**\n`);
+      lines.push(`Watch the video below:\n`);
+      // CN: 使用 LiaScript 视频语法：!?[alt-text](youtube-url)
+      lines.push(`\n!?[${displayName}](https://www.youtube.com/watch?v=${videoId})\n`);
+    } else {
+      lines.push(`**${displayName}**\n`);
+      lines.push(`*Video ID could not be extracted*\n`);
+    }
+  }
+  
+  return lines.join('\n');
+}
+
+/**
+ * CN: 渲染 HTML5 视频
+ * @param {Object} content - 视频内容
+ * @param {string} displayName - 显示名称
+ * @returns {string} Markdown 内容
+ */
+function renderHtml5Video(content, displayName) {
+  const lines = [];
+  
+  const html5Sources = content['@_html5_sources'];
+  if (html5Sources) {
+    lines.push(`**${displayName}**\n`);
+    lines.push(`*Video sources: ${html5Sources}*\n`);
+    lines.push(`\n@video[${html5Sources}]\n`);
+  }
+  
+  return lines.join('\n');
+}
+
+/**
+ * CN: 渲染外部视频
+ * @param {Object} content - 视频内容
+ * @param {string} displayName - 显示名称
+ * @returns {string} Markdown 内容
+ */
+function renderExternalVideo(content, displayName) {
+  const lines = [];
+  
+  const urlName = content['@_url_name'];
+  if (urlName) {
+    lines.push(`**${displayName}**\n`);
+    lines.push(`*Video URL: ${urlName}*\n`);
+    lines.push(`\n@video[${urlName}]\n`);
+  }
+  
+  return lines.join('\n');
+}
+
+/**
+ * CN: 渲染未知类型视频
+ * @param {Object} content - 视频内容
+ * @param {string} displayName - 显示名称
+ * @returns {string} Markdown 内容
+ */
+function renderUnknownVideo(content, displayName) {
+  const lines = [];
+  lines.push(`**${displayName}**\n`);
+  lines.push('*This video type is not yet supported.*\n');
+  lines.push('```json\n' + JSON.stringify(content, null, 2) + '\n```\n');
+  return lines.join('\n');
+}
+// ==================== About ====================
+// --------------------------------- parseAboutComponent ✅ 根据aboutRef内容找到about.xml文件，并且解析所有内容并且返回，变成统一格式（IR）------------------------------------
+/**
+ * CN: 解析 About 组件
+ * @param {string} courseRoot - 课程根目录
+ * @param {Object} component - 组件信息
+ * @returns {Object} About 组件的中间表示
+ */
+function parseAboutComponent(courseRoot, component) {
+  const { id, displayName } = component;
+  const aboutDir = path.join(courseRoot, 'about');
+  
+  if (!fs.existsSync(aboutDir)) {
+    throw new Error(`About directory not found: ${aboutDir}`);
+  }
+  
+  // CN: About 组件通常是 HTML 文件，不是 XML
+  const aboutFiles = fs.readdirSync(aboutDir);
+  const htmlFiles = aboutFiles.filter(file => file.endsWith('.html'));
+  
+  if (htmlFiles.length === 0) {
+    throw new Error(`No HTML files found in about directory: ${aboutDir}`);
+  }
+  
+  // CN: 读取第一个 HTML 文件（通常是 overview.html）
+  const aboutHtmlPath = path.join(aboutDir, htmlFiles[0]);
+  const htmlContent = fs.readFileSync(aboutHtmlPath, 'utf8');
+  
+  return {
+    type: 'about',
+    content: htmlContent,
+    filename: htmlFiles[0],
+    displayName: displayName || 'About This Course',
+    aboutType: 'html'
+  };
+}
+
+// --------------------------------- renderAboutComponent ✅ 将 统一格式的About IR 内容转换为 LiaScript Markdown 格式------------------------------------
+/**
+ * CN: 渲染 About 组件为 LiaScript Markdown
+ * @param {Object} aboutIR - About 组件的中间表示
+ * @returns {string} LiaScript Markdown 内容
+ */
+function renderAboutComponent(aboutIR) {
+  if (!aboutIR || aboutIR.type !== 'about') {
+    throw new Error('Invalid about component data');
+  }
+  
+  const { content, displayName, aboutType } = aboutIR;
+  
+  switch (aboutType) {
+    case 'html':
+      return renderAboutHtml(content, displayName);
+    default:
+      return renderUnknownAbout(content, displayName);
+  }
+}
+
+/**
+ * CN: 渲染 About HTML 内容
+ * @param {string} content - HTML 内容
+ * @param {string} displayName - 显示名称
+ * @returns {string} Markdown 内容
+ */
+function renderAboutHtml(content, displayName) {
+  const lines = [];
+  lines.push(`## ${displayName}\n`);
+  
+  // CN: 重写媒体文件路径
+  const processedContent = rewriteMediaPaths(content);
+  
+  // CN: 使用 node-html-markdown 转换 HTML
+  const markdown = NodeHtmlMarkdown.NodeHtmlMarkdown.translate(processedContent, {
+    bulletListMarker: '-',
+    codeFence: '```',
+    emDelimiter: '*',
+    fence: '```',
+    headingStyle: 'atx',
+    hr: '---',
+    strongDelimiter: '**',
+    textReplace: [
+      [/\s+/g, ' '],
+      [/\n\s*\n\s*\n/g, '\n\n']
+    ]
+  });
+  
+  if (markdown && markdown.trim() !== '') {
+    lines.push(markdown.trim());
+  } else {
+    lines.push('*No content available*');
+  }
+  
+  lines.push('\n---\n');
+  return lines.join('\n');
+}
+
+/**
+ * CN: 渲染未知类型 About
+ * @param {Object} content - 内容
+ * @param {string} displayName - 显示名称
+ * @returns {string} Markdown 内容
+ */
+function renderUnknownAbout(content, displayName) {
+  const lines = [];
+  lines.push(`## ${displayName}\n`);
+  lines.push('*This about type is not yet supported.*\n');
+  lines.push('```json\n' + JSON.stringify(content, null, 2) + '\n```\n');
+  lines.push('\n---\n');
+  return lines.join('\n');
+}
 
 
-// --------------------------------- TODO:parseComponent ✅ 判断输入的文件是什么类型，根据不同类型call上面不同类型的解析函数，变成统一格式（IR）-------------------------------------
+// ==================== Component Dispatcher ====================
+// --------------------------------- parseComponent ✅ 判断输入的文件是什么类型，根据不同类型call上面不同类型的解析函数，变成统一格式（IR）-------------------------------------
 /**
  * Parse component content based on type
  * CN: 根据类型解析组件内容
@@ -602,31 +1156,13 @@ function parseComponent(courseRoot, component) {
       return parseHtmlComponent(courseRoot, id);
       
     case 'problem':
-      // TODO: 实现问题组件解析
-      return {
-        type: 'problem',
-        content: `*Problem component not yet implemented: ${id}*`,
-        filename: id,
-        displayName: id
-      };
+      return parseProblemComponent(courseRoot, component);
       
     case 'video':
-      // TODO: 实现视频组件解析
-      return {
-        type: 'video',
-        content: `*Video component not yet implemented: ${id}*`,
-        filename: id,
-        displayName: id
-      };
+      return parseVideoComponent(courseRoot, component);
       
     case 'about':
-      // TODO: 实现关于组件解析
-      return {
-        type: 'about',
-        content: `*About component not yet implemented: ${id}*`,
-        filename: id,
-        displayName: id
-      };
+      return parseAboutComponent(courseRoot, component);
       
     default:
       // CN: 未知组件类型，返回占位符
@@ -642,7 +1178,8 @@ function parseComponent(courseRoot, component) {
   }
 }
 
-// --------------------------------- TODO:renderComponent ✅ 根据统一格式的IR内容，根据不同类型call上面不同类型的渲染函数，变成LiaScript Markdown格式-------------------------------------
+// ==================== Component Renderer ====================
+// --------------------------------- renderComponent ✅ 根据统一格式的IR内容，根据不同类型call上面不同类型的渲染函数，变成LiaScript Markdown格式-------------------------------------
 /**
  * Render component to LiaScript Markdown
  * CN: 将组件渲染为 LiaScript Markdown
@@ -668,16 +1205,13 @@ function renderComponent(componentIR) {
       return renderHtmlContent(componentIR);
       
     case 'problem':
-      // TODO: 实现问题组件渲染
-      return `## Problem: ${componentIR.displayName || componentIR.filename}\n\n${componentIR.content}\n\n---\n`;
+      return renderProblemComponent(componentIR);
       
     case 'video':
-      // TODO: 实现视频组件渲染
-      return `## Video: ${componentIR.displayName || componentIR.filename}\n\n${componentIR.content}\n\n---\n`;
+      return renderVideoComponent(componentIR);
       
     case 'about':
-      // TODO: 实现关于组件渲染
-      return `## About: ${componentIR.displayName || componentIR.filename}\n\n${componentIR.content}\n\n---\n`;
+      return renderAboutComponent(componentIR);
       
     case 'unknown':
       // CN: 未知组件类型，返回占位符
@@ -692,6 +1226,7 @@ function renderComponent(componentIR) {
   }
 }
 
+// ==================== Course Tree ====================
 // --------------------------------- buildCourseTree ✅ 打印树，用于测试  -------------------------------------
 function buildCourseTree(courseRoot) {
   const meta = parseCourseXml(courseRoot);
@@ -726,6 +1261,7 @@ function printCourseTree(courseTree) {
   console.log(lines.join('\n'));
 }
 
+// ==================== Process Courses ====================
 // --------------------------------- processCourses ✅ -------------------------------------
 
 /**
@@ -834,7 +1370,8 @@ async function processCourses(tarGzFiles) {
   // CN: 本次进程内不清理 temp，保留供检查
 }
 
-// --------------------------------- TODO:generateCourseOutput ✅ 生成课程输出文件 -------------------------------------
+// ==================== Output ====================
+// --------------------------------- generateCourseOutput ✅ 生成课程输出文件 -------------------------------------
 /**
  * Generate course output files
  * CN: 生成课程输出文件
@@ -883,7 +1420,8 @@ async function generateCourseOutput(fileName, markdownContent, courseRoot) {
   }
 }
 
-// --------------------------------- TODO:processMediaFiles ❌ 处理媒体文件 -------------------------------------
+// ==================== Media ====================
+// --------------------------------- processMediaFiles ❌ 处理媒体文件 -------------------------------------
 /**
  * Process and copy media files
  * CN: 处理并复制媒体文件
@@ -923,6 +1461,7 @@ async function processMediaFiles(courseRoot, mediaDir) {
   }
 }
 
+// --------------------------------- findMediaFiles ❌ 查找课程中的所有媒体文件 -------------------------------------
 /**
  * CN: 查找课程中的所有媒体文件
  * @param {string} courseRoot - 课程根目录
@@ -968,6 +1507,7 @@ async function findMediaFiles(courseRoot) {
   return mediaFiles;
 }
 
+// --------------------------------- copyMediaFile ❌ 复制单个媒体文件 -------------------------------------
 /**
  * CN: 复制单个媒体文件
  * @param {Object} mediaFile - 媒体文件信息
@@ -982,11 +1522,41 @@ async function copyMediaFile(mediaFile, targetDir) {
   // CN: 复制文件
   fs.copyFileSync(mediaFile.fullPath, targetPath);
   
+  // CN: 额外创建一个规范化文件名的副本（空格/逗号等 → 下划线），用于兼容 Markdown 中的安全命名引用
+  const sanitizedName = sanitizeFileName(mediaFile.fileName);
+  const sanitizedPath = path.join(targetDir, sanitizedName);
+  if (sanitizedName !== mediaFile.fileName) {
+    try {
+      if (!fs.existsSync(sanitizedPath)) {
+        fs.copyFileSync(mediaFile.fullPath, sanitizedPath);
+      }
+    } catch (e) {
+      if (options.verbose) {
+        console.warn(`⚠️ Failed to write sanitized media alias ${sanitizedName}: ${e.message}`);
+      }
+    }
+  }
+  
   if (options.verbose) {
     console.log(`📄 Copied: ${mediaFile.relativePath} → ${mediaFile.fileName}`);
+    if (sanitizedName !== mediaFile.fileName) {
+      console.log(`📄 Aliased: ${mediaFile.fileName} → ${sanitizedName}`);
+    }
   }
 }
 
+/**
+ * CN: 规范化媒体文件名（将空格、逗号等非安全字符替换为下划线）
+ * 规则：保留字母/数字/点/下划线/连字符，其他统一为下划线
+ */
+function sanitizeFileName(fileName) {
+  return String(fileName)
+    .replace(/[^A-Za-z0-9._-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+// --------------------------------- rewriteMediaPaths ❌ 重写 HTML 中的媒体文件路径 -------------------------------------
 /**
  * CN: 重写 HTML 中的媒体文件路径
  * @param {string} htmlContent - HTML 内容
@@ -1000,13 +1570,20 @@ function rewriteMediaPaths(htmlContent) {
   // CN: 将 /static/ 路径替换为相对路径 ./media/
   let processedContent = htmlContent.replace(
     /src=["']\/static\/([^"']+)["']/g,
-    'src="./media/$1"'
+    (m, p1) => {
+      // CN: 同步使用与拷贝别名相同的规则生成安全文件名，以提高匹配率
+      const safe = sanitizeFileName(p1);
+      return `src="./media/${safe}"`;
+    }
   );
   
   // CN: 处理其他可能的媒体路径格式
   processedContent = processedContent.replace(
     /href=["']\/static\/([^"']+)["']/g,
-    'href="./media/$1"'
+    (m, p1) => {
+      const safe = sanitizeFileName(p1);
+      return `href="./media/${safe}"`;
+    }
   );
   
   return processedContent;
@@ -1118,16 +1695,9 @@ function transformNodeToMarkdown(node, nodeNumber, courseRoot, level = 1) { //1=
   const childrenKey = getChildrenKey(level);
   const childrenType = getChildrenType(level);
   
-  // CN: 添加节点标题（移除序号）
-  lines.push(`${titlePrefix} ${node.title}\n`);
-  
-  // CN: 添加节点简介（简化元数据）
-  if (level === 1) {
-    lines.push(`This chapter contains ${node[childrenKey].length} units covering various aspects of the topic.\n\n`);
-  } else if (level === 2) {
-    lines.push(`This unit contains ${node[childrenKey].length} sections with detailed content.\n\n`);
-  } else if (level === 3) {
-    lines.push(`This section contains ${node[childrenKey].length} components with learning materials.\n\n`);
+  // CN: 渲染标题：Chapter 与 Sequential 输出标题；Vertical 不输出标题（其内容直接并入 Sequential 页面）
+  if (level <= 2) {
+    lines.push(`${titlePrefix} ${node.title}\n`);
   }
   
   // CN: 递归处理子节点或组件
