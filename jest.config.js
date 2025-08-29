@@ -6,7 +6,6 @@ export default {
   coverageReporters: ['text', 'lcov', 'html'],
   collectCoverageFrom: [
     'courseconverter.js',
-    'courseconverter.test-lib.js',
     '!**/node_modules/**'
   ],
   setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],

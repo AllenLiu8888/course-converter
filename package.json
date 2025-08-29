@@ -4,7 +4,7 @@
   "description": "Convert Open edX OLX courses to LiaScript Markdown",
   "type": "module",
   "bin": {
-    "my-course-converter": "./bin/my-course-converter.js"
+    "courseconverter": "./courseconverter.js"
   },
   "scripts": {
     "cli": "node courseconverter.js --help",

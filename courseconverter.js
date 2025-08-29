@@ -599,7 +599,14 @@ function determineProblemType(problem) {
   if (problem.multiplechoiceresponse) {
     return 'multiple_choice';
   } else if (problem.choiceresponse) {
-    return 'choice';
+    // CN: 检查是否有 checkboxgroup（多选题）或 choicegroup（单选题）
+    const choiceResponse = problem.choiceresponse;
+    if (choiceResponse.checkboxgroup) {
+      return 'multiple_choice';
+    } else if (choiceResponse.choicegroup) {
+      return 'choice';
+    }
+    return 'choice'; // CN: 默认作为单选题处理
   } else if (problem.optionresponse) {
     // CN: 下拉选择题（selection-quiz）
     return 'selection';
@@ -858,6 +865,55 @@ function renderProblemComponent(problemIR) {
   }
 }
 
+// Extract hints from problem content
+// CN: 从问题内容中提取提示信息 ❌
+/**
+ * Extract hints from problem content
+ * @param {Object} content - Problem content
+ * @returns {string[]} Array of hint texts
+ */
+function extractHints(content) {
+  const hints = [];
+  
+  // CN: 查找各种可能的 hints 结构
+  if (content.hint) {
+    const hintArray = toArray(content.hint);
+    hintArray.forEach(hint => {
+      if (typeof hint === 'string') {
+        hints.push(hint.trim());
+      } else if (hint['#text']) {
+        hints.push(hint['#text'].trim());
+      }
+    });
+  }
+  
+  // CN: 查找 demotedhint 结构
+  if (content.demotedhint) {
+    const demotedHints = toArray(content.demotedhint);
+    demotedHints.forEach(hint => {
+      if (typeof hint === 'string') {
+        hints.push(hint.trim());
+      } else if (hint['#text']) {
+        hints.push(hint['#text'].trim());
+      }
+    });
+  }
+  
+  // CN: 查找 description 结构（作为提示）
+  if (content.description) {
+    const descriptionArray = toArray(content.description);
+    descriptionArray.forEach(desc => {
+      if (typeof desc === 'string') {
+        hints.push(desc.trim());
+      } else if (desc['#text']) {
+        hints.push(desc['#text'].trim());
+      }
+    });
+  }
+  
+  return hints.filter(Boolean);
+}
+
 // Render multiple choice problem
 // CN: 渲染多选题 ❌
 /**
@@ -869,6 +925,7 @@ function renderProblemComponent(problemIR) {
 function renderMultipleChoiceProblem(content, displayName) {
   const lines = [];
   
+  // CN: 处理 multiplechoiceresponse
   const multipleChoice = content.multiplechoiceresponse;
   if (multipleChoice) {
     // CN: 如果p标签和label都有则都显示
@@ -891,12 +948,49 @@ function renderMultipleChoiceProblem(content, displayName) {
         lines.push(`- ${marker} ${choiceText}`);
       });
     }
+    
+    // CN: 添加 hints 支持
+    const hints = extractHints(multipleChoice);
+    hints.forEach(hint => {
+      lines.push(`- [[?]] ${hint}`);
+    });
+  }
+  
+  // CN: 处理 choiceresponse 中的 checkboxgroup（多选题）
+  const choiceResponse = content.choiceresponse;
+  if (choiceResponse) {
+    // CN: 如果p标签和label都有则都显示
+    const pContent = choiceResponse.p || '';
+    const labelContent = choiceResponse.label || '';
+    if (pContent) {
+      lines.push(`${pContent}\n`);
+    }
+    if (labelContent) {
+      lines.push(`${labelContent}\n`);
+    }
+    
+    const checkboxGroup = choiceResponse.checkboxgroup;
+    if (checkboxGroup && checkboxGroup.choice && Array.isArray(checkboxGroup.choice)) {
+      checkboxGroup.choice.forEach((choice, choiceIndex) => {
+        const isCorrect = choice['@_correct'] === 'true';
+        const choiceText = choice['#text'] || choice;
+        // CN: 使用 LiaScript 多选题语法：[[X]] 表示正确答案，[[ ]] 表示错误答案
+        const marker = isCorrect ? '[[X]]' : '[[ ]]';
+        lines.push(`- ${marker} ${choiceText}`);
+      });
+    }
+    
+    // CN: 添加 hints 支持
+    const hints = extractHints(choiceResponse);
+    hints.forEach(hint => {
+      lines.push(`- [[?]] ${hint}`);
+    });
   }
   
   return lines.join('\n');
 }
 
-// Render selection problem
+// Render dropdown problem
 // CN: 渲染下拉选择题（selection-quiz）到 LiaScript 语法 ❌
 /**
  * Render selection problem
@@ -930,6 +1024,12 @@ function renderSelectionProblem(content, displayName) {
       .join(' | ');
     lines.push(`[[ ${rendered} ]]`);
   }
+  
+  // CN: 添加 hints 支持
+  const hints = extractHints(node);
+  hints.forEach(hint => {
+    lines.push(`- [[?]] ${hint}`);
+  });
 
   return lines.join('\n');
 }
@@ -967,6 +1067,12 @@ function renderChoiceProblem(content, displayName) {
         lines.push(`- ${marker} ${choiceText}`);
       });
     }
+    
+    // CN: 添加 hints 支持
+    const hints = extractHints(choice);
+    hints.forEach(hint => {
+      lines.push(`- [[?]] ${hint}`);
+    });
   }
   
   return lines.join('\n');
@@ -1008,6 +1114,12 @@ function renderTextInputProblem(content, displayName) {
     } else {
       lines.push(`\n    [[ ]]\n`);
     }
+    
+    // CN: 添加 hints 支持
+    const hints = extractHints(stringResponse);
+    hints.forEach(hint => {
+      lines.push(`- [[?]] ${hint}`);
+    });
   }
 
   return lines.join('\n');
@@ -1037,6 +1149,12 @@ function renderNumberInputProblem(content, displayName) {
     }
     // CN: 使用 LiaScript 数字输入语法：[[数字]]
     lines.push('    [[Enter a number]]\n');
+    
+    // CN: 添加 hints 支持
+    const hints = extractHints(numericalResponse);
+    hints.forEach(hint => {
+      lines.push(`- [[?]] ${hint}`);
+    });
   }
   
   return lines.join('\n');
@@ -1062,6 +1180,13 @@ function renderUnsupportedProblem(content, displayName, problemType) {
     lines.push(`${displayName}\n`);
   }
   lines.push(`*仅支持多选、单选、下拉选择、文本输入、数字输入问题，${problemType} 类型暂不支持。*\n`);
+  
+  // CN: 添加 hints 支持（即使是不支持的问题类型也可能有 hints）
+  const hints = extractHints(content);
+  hints.forEach(hint => {
+    lines.push(`- [[?]] ${hint}`);
+  });
+  
   return lines.join('\n');
 }
 
@@ -1860,6 +1985,9 @@ export {
   // Type detection
   determineProblemType,
   determineVideoType,
+  
+  // Hints processing
+  extractHints,
   
   // Media processing
   sanitizeFileName,

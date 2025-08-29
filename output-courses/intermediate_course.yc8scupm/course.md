@@ -90,6 +90,7 @@ In conclusion, meteorologists use a variety of instruments and tools to measure 
 What is the name of the instrument used to measure wind speed?
 
 [[ Barometer | ( Anemometer ) | Hygrometer | Thermometer ]]
+- [[?]] You can add an optional tip or note related to the prompt like this.
 What is the name of the instrument used to measure humidity?
 
 
@@ -117,6 +118,7 @@ What is the main difference between a hurricane and a tornado?
 - [[X]] A hurricane forms over water while a tornado forms over land
 - [[ ]] A tornado is larger than a hurricane
 - [[ ]] A tornado forms over water while a hurricane forms over land
+- [[?]] You can add an optional tip or note related to the prompt like this.
 What is the Fujita scale used for?
 
 - [[ ]] Measuring the intensity of hurricanes
@@ -125,6 +127,10 @@ What is the Fujita scale used for?
 - [[ ]] Measuring the intensity of earthquakes
 What are the conditions necessary for a hurricane to form?
 
+- [[X]] Low atmospheric pressure
+- [[ ]] High atmospheric pressure
+- [[ ]] Cool water
+- [[X]] Warm water
 ### Extra Content
 
 
@@ -146,6 +152,9 @@ What is the ozone layer?
 - [[ ]] A layer of gas that causes smog
 Which of the following combinations of conditions are most likely to lead to the formation of a thunderstorm?
 
+- [[X]] Warm, moist air near the ground and cold air aloft
+- [[ ]] High pressure system and clear skies
+- [[X]] Rapid upward movement of air and presence of cumulonimbus clouds
 What is the name of the instrument used to measure atmospheric pressure?
 
 

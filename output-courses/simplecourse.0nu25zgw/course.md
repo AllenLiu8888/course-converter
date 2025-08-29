@@ -34,6 +34,7 @@ Add the question text, or prompt, here. This text is required.
 - [[ ]] an incorrect answer
 - [[X]] the correct answer
 - [[ ]] an incorrect answer
+- [[?]] You can add an optional tip or note related to the prompt like this.
 ### Chapter 1 Sequential 2
 
 This template is similar to the Text template. The only difference is that this template opens in the Raw HTML editor rather than in the Visual editor.
@@ -58,15 +59,22 @@ Add the question text, or prompt, here. This text is required.
 - [[ ]] an incorrect answer
 - [[X]] the correct answer
 - [[ ]] an incorrect answer
+- [[?]] You can add an optional tip or note related to the prompt like this.
 You can use this template as a guide to the simple editor markdown and OLX markup to use for checkboxes problems. Edit this component to replace this template with your own assessment.
 
 Add the question text, or prompt, here. This text is required.
 
+- [[X]] a correct answer
+- [[ ]] an incorrect answer
+- [[ ]] an incorrect answer
+- [[X]] a correct answer
+- [[?]] You can add an optional tip or note related to the prompt like this.
 You can use this template as a guide to the simple editor markdown and OLX markup to use for dropdown problems. Edit this component to replace this template with your own assessment.
 
 Add the question text, or prompt, here. This text is required.
 
 [[ an incorrect answer | ( the correct answer ) | an incorrect answer ]]
+- [[?]] You can add an optional tip or note related to the prompt like this.
 You can use this template as a guide to the simple editor markdown and OLX markup to use for multiple choice with hints and feedback problems. Edit this component to replace this template with your own assessment.
 
 Add the question text, or prompt, here. This text is required.
@@ -74,16 +82,23 @@ Add the question text, or prompt, here. This text is required.
 - [[ ]] an incorrect answer
 - [[X]] the correct answer
 - [[ ]] an incorrect answer
+- [[?]] You can add an optional tip or note related to the prompt like this.
 You can use this template as a guide to the simple editor markdown and OLX markup to use for checkboxes with hints and feedback problems. Edit this component to replace this template with your own assessment.
 
 Add the question text, or prompt, here. This text is required.
 
+- [[X]] a correct answer
+- [[ ]] an incorrect answer
+- [[ ]] an incorrect answer
+- [[X]] a correct answer
+- [[?]] You can add an optional tip or note related to the prompt like this.
 You can use this template as a guide to the simple editor markdown and OLX markup to use for numerical input problems. Edit this component to replace this template with your own assessment.
 
 Add the question text, or prompt, here. This text is required.
 
     [[Enter a number]]
 
+- [[?]] You can add an optional tip or note related to the prompt like this.
 You can use this template as a guide to the simple editor markdown and OLX markup to use for text input problems. Edit this component to replace this template with your own assessment.
 
 Add the question text, or prompt, here. This text is required.
@@ -91,6 +106,7 @@ Add the question text, or prompt, here. This text is required.
 
     [[the correct answer | optional acceptable variant of the correct answer]]
 
+- [[?]] You can add an optional tip or note related to the prompt like this.
 ### Chapter 2 Sequential 2
 
 **Example Embedded Youtube Video**
