@@ -12,6 +12,10 @@ import {
   parseProblemComponent,
   renderProblemComponent,
   determineProblemType,
+  renderMultipleChoiceProblem,
+  renderSelectionProblem,
+  renderTextInputProblem,
+  extractHints,
   
   // Media processing
   rewriteMediaPaths,
@@ -321,6 +325,221 @@ describe('Course Converter - Core Requirements Tests', () => {
       expect(markdown).toContain('### Lesson One');
       expect(markdown).toContain('### Content Title'); // From HTML
       expect(markdown).toContain('Enter answer:'); // From problem
+    });
+  });
+
+  // ============================================================================
+  // Additional Feature Tests - Hints Support
+  // ============================================================================
+  describe('Hints Support', () => {
+    describe('extractHints function', () => {
+      it('should extract hints from hint elements', () => {
+        const content = {
+          hint: [
+            'This is the first hint',
+            'This is the second hint'
+          ]
+        };
+        
+        const hints = extractHints(content);
+        expect(hints).toEqual(['This is the first hint', 'This is the second hint']);
+      });
+
+      it('should extract hints from demotedhint elements', () => {
+        const content = {
+          demotedhint: [
+            'This is a demoted hint'
+          ]
+        };
+        
+        const hints = extractHints(content);
+        expect(hints).toEqual(['This is a demoted hint']);
+      });
+
+      it('should extract hints from complex hint objects', () => {
+        const content = {
+          hint: [
+            { '#text': 'This is a complex hint' },
+            'This is a simple hint'
+          ]
+        };
+        
+        const hints = extractHints(content);
+        expect(hints).toEqual(['This is a complex hint', 'This is a simple hint']);
+      });
+
+      it('should extract description as hint', () => {
+        const content = {
+          description: 'This is a helpful description that should be treated as a hint'
+        };
+        
+        const hints = extractHints(content);
+        expect(hints).toEqual(['This is a helpful description that should be treated as a hint']);
+      });
+
+      it('should return empty array when no hints exist', () => {
+        const content = {};
+        const hints = extractHints(content);
+        expect(hints).toEqual([]);
+      });
+    });
+
+    it('should render text input problem with hints in correct format', () => {
+      const content = {
+        stringresponse: {
+          p: 'What is $37 + 15$?',
+          '@_answer': '52',
+          hint: [
+            'the solution is larger than 50',
+            'it is less than 55',
+            'it should be an even number'
+          ]
+        }
+      };
+      
+      const result = renderTextInputProblem(content, 'Math Question');
+      
+      expect(result).toContain('What is $37 + 15$?');
+      expect(result).toContain('    [[52]]');
+      expect(result).toContain('- [[?]] the solution is larger than 50');
+      expect(result).toContain('- [[?]] it is less than 55');
+      expect(result).toContain('- [[?]] it should be an even number');
+    });
+
+    it('should render multiple choice problem with hints in correct format', () => {
+      const content = {
+        multiplechoiceresponse: {
+          p: 'What is $37 + 15$?',
+          choicegroup: {
+            choice: [
+              { '#text': '50', '@_correct': 'false' },
+              { '#text': '52', '@_correct': 'true' },
+              { '#text': '55', '@_correct': 'false' }
+            ]
+          },
+          hint: [
+            'the solution is larger than 50',
+            'it is less than 55',
+            'it should be an even number'
+          ]
+        }
+      };
+      
+      const result = renderMultipleChoiceProblem(content, 'Math Question');
+      
+      expect(result).toContain('What is $37 + 15$?');
+      expect(result).toContain('- [[ ]] 50');
+      expect(result).toContain('- [[X]] 52');
+      expect(result).toContain('- [[ ]] 55');
+      expect(result).toContain('- [[?]] the solution is larger than 50');
+      expect(result).toContain('- [[?]] it is less than 55');
+      expect(result).toContain('- [[?]] it should be an even number');
+    });
+  });
+
+  // ============================================================================
+  // Additional Feature Tests - Advanced Problem Types
+  // ============================================================================
+  describe('Advanced Problem Types', () => {
+    describe('Problem Type Detection', () => {
+      it('should detect checkboxgroup as multiple choice', () => {
+        const problem = {
+          choiceresponse: {
+            checkboxgroup: {
+              choice: [
+                { '#text': 'Option 1', '@_correct': 'true' },
+                { '#text': 'Option 2', '@_correct': 'false' }
+              ]
+            }
+          }
+        };
+        
+        const type = determineProblemType(problem);
+        expect(type).toBe('multiple_choice');
+      });
+
+      it('should detect choicegroup as single choice', () => {
+        const problem = {
+          choiceresponse: {
+            choicegroup: {
+              choice: [
+                { '#text': 'Option 1', '@_correct': 'true' },
+                { '#text': 'Option 2', '@_correct': 'false' }
+              ]
+            }
+          }
+        };
+        
+        const type = determineProblemType(problem);
+        expect(type).toBe('choice');
+      });
+
+      it('should detect optionresponse as selection', () => {
+        const problem = {
+          optionresponse: {
+            optioninput: {
+              option: [
+                { '#text': 'Option 1', '@_correct': 'False' },
+                { '#text': 'Option 2', '@_correct': 'True' }
+              ]
+            }
+          }
+        };
+        
+        const type = determineProblemType(problem);
+        expect(type).toBe('selection');
+      });
+    });
+
+    describe('Checkboxgroup Problem Rendering', () => {
+      it('should render checkboxgroup as multiple choice', () => {
+        const content = {
+          choiceresponse: {
+            label: 'What are the conditions necessary for a hurricane to form?',
+            checkboxgroup: {
+              choice: [
+                { '#text': 'Low atmospheric pressure', '@_correct': 'true' },
+                { '#text': 'High atmospheric pressure', '@_correct': 'false' },
+                { '#text': 'Cool water', '@_correct': 'false' },
+                { '#text': 'Warm water', '@_correct': 'true' }
+              ]
+            }
+          }
+        };
+        
+        const result = renderMultipleChoiceProblem(content, 'Hurricane Question');
+        
+        expect(result).toContain('What are the conditions necessary for a hurricane to form?');
+        expect(result).toContain('- [[X]] Low atmospheric pressure');
+        expect(result).toContain('- [[ ]] High atmospheric pressure');
+        expect(result).toContain('- [[ ]] Cool water');
+        expect(result).toContain('- [[X]] Warm water');
+      });
+    });
+
+    describe('Selection Problems with Description', () => {
+      it('should render optionresponse with description as hint', () => {
+        const content = {
+          optionresponse: {
+            label: 'What is the name of the instrument used to measure wind speed?',
+            description: 'You can add an optional tip or note related to the prompt like this.',
+            optioninput: {
+              option: [
+                { '#text': 'Barometer', '@_correct': 'False' },
+                { '#text': 'Anemometer', '@_correct': 'True' },
+                { '#text': 'Hygrometer', '@_correct': 'False' },
+                { '#text': 'Thermometer', '@_correct': 'False' }
+              ]
+            }
+          }
+        };
+        
+        const result = renderSelectionProblem(content, 'Wind Speed Question');
+        
+        expect(result).toContain('What is the name of the instrument used to measure wind speed?');
+        expect(result).toContain('[[ Barometer | ( Anemometer ) | Hygrometer | Thermometer ]]');
+        expect(result).toContain('- [[?]] You can add an optional tip or note related to the prompt like this.');
+      });
     });
   });
 });
