@@ -143,7 +143,12 @@ This project was developed with assistance from the following AI tools:
 
 These AI tools provided valuable guidance and code assistance during development, but all final code implementation, architectural decisions, and functional design were completed independently by the developer.
 
+## Github Repo 
+
+https://github.com/AllenLiu8888/course-converter.git
+
 
 ## Author
 
 Yikai Liu
+47672626
