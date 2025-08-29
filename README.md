@@ -1,60 +1,60 @@
-# 课程转换器 (Course Converter)
+# Course Converter
 
-一个功能强大的命令行工具，用于将 OpenEdx OLX 格式的课程转换为 LiaScript Markdown 格式。
+A powerful command-line tool for converting OpenEdx OLX format courses to LiaScript Markdown format.
 
 
-## 功能特性
+## Features
 
-- **批量转换**: 支持单个 `.tar.gz` 文件或包含多个课程的文件夹
-- **完整支持**: 转换课程结构、内容、媒体文件和交互式问题
-- **问题类型**: 支持多选题、单选题、下拉选择、文本输入、数字输入、Hints支持
-- **媒体处理**: 自动处理图片和视频文件
-- **错误处理**: 健壮的错误处理，单个课程失败不影响其他课程
-- **函数式编程**: 采用现代 JavaScript 函数式编程范式
+- **Batch Conversion**: Supports single `.tar.gz` files or folders containing multiple courses
+- **Complete Support**: Converts course structure, content, media files, and interactive problems
+- **Problem Types**: Supports multiple choice, single choice, dropdown selection, text input, number input, and hints
+- **Media Processing**: Automatically handles images and video files
+- **Error Handling**: Robust error handling, individual course failures don't affect other courses
+- **Functional Programming**: Uses modern JavaScript functional programming paradigms
 
-## 快速开始
+## Quick Start
 
-### 安装依赖
+### Installation
 
 ```bash
 npm install
 ```
 
-### 基本使用
+### Basic Usage
 
 ```bash
-# 转换单个课程文件
+# Convert a single course file
 node courseconverter.js input-course.tar.gz output-folder
 
-# 转换包含多个课程的文件夹
+# Convert a folder containing multiple courses
 node courseconverter.js input-folder output-folder
 
-# 显示帮助信息
+# Show help information
 node courseconverter.js --help
 ```
 
-### 示例
+### Examples
 
 ```bash
-# 转换单个课程
+# Convert a single course
 node courseconverter.js input-courses/simple-course.tar.gz output-courses
 
-# 转换多个课程
+# Convert multiple courses
 node courseconverter.js input-courses/ output-courses/
 
-# 详细模式（显示更多信息）
+# Verbose mode (show more information)
 node courseconverter.js --verbose input-courses/ output-courses/
 ```
 
-## 输出结构
+## Output Structure
 
-转换后的课程将按以下结构组织：
+Converted courses will be organized in the following structure:
 
 ```
 output-courses/
 ├── course1/
-│   ├── course.md          # 转换后的 LiaScript Markdown 文件
-│   └── media/             # 媒体文件目录
+│   ├── course.md          # Converted LiaScript Markdown file
+│   └── media/             # Media files directory
 │       ├── image1.png
 │       ├── image2.jpg
 │       └── video1.mp4
@@ -64,92 +64,86 @@ output-courses/
 └── ...
 ```
 
-## 支持的问题类型
+## Supported Problem Types
 
-### 1. 多选题 (Multiple Choice)
-
-### 2. 单选题 (Single Choice)
-
-### 3. 下拉选择题 (Dropdown/Selection)
-
-### 4. 文本输入题 (Text Input)
-
-### 5. 数字输入题 (Number Input)
-
-### 6. Hints 功能
-
-### 7. CheckBox 功能
+1. Multiple Choice
+2. Single Choice  
+3. Dropdown/Selection
+4. Text Input
+5. Number Input
+6. Hints Support
+7. CheckBox Support
 
 
 
-## 视频支持
+## Video Support
 
-### YouTube 视频
+YouTube Videos
 
-### 外部 URL 视频
+External URL Videos
 
-## 图片处理
+## Image Processing
 
-自动处理课程中的图片文件：
+Automatically processes image files in courses:
 
-- 将图片从 `/static/` 路径转换为 `./media/` 相对路径
-- 自动复制图片文件到输出目录
-- 支持多种图片格式 (PNG, JPG, GIF, SVG)
+- Converts images from `/static/` paths to `./media/` relative paths
+- Automatically copies image files to output directory
+- Supports multiple image formats (PNG, JPG, GIF, SVG)
 
-## 测试
+## Testing
 
-运行测试套件：
+Run the test suite:
 
 ```bash
-# 运行所有测试
+# Run all tests
 npm test
 ```
 
-## 项目结构
+## Project Structure
 
 ```
 my-course-converter/
-├── courseconverter.js      # 主程序文件
-├── package.json            # 项目配置
-├── jest.config.js          # Jest 测试配置
-├── tests/                  # 测试文件
+├── courseconverter.js      # Main program file
+├── package.json            # Project configuration
+├── jest.config.js          # Jest test configuration
+├── tests/                  # Test files
 │   ├── core-requirements.test.js
 │   └── ...
-├── input-courses/          # 输入课程文件
-├── output-courses/         # 输出课程文件
-└── temp/                   # 临时文件目录
+├── input-courses/          # Input course files
+├── output-courses/         # Output course files
+└── temp/                   # Temporary files directory
 ```
 
-## 技术栈
+## Technology Stack
 
-- **Node.js**: 运行时环境
-- **ES Modules**: JavaScript 模块系统
-- **Commander.js**: 命令行参数解析
-- **fast-xml-parser**: XML 解析
-- **node-html-markdown**: HTML 到 Markdown 转换
-- **tar**: 压缩文件处理
-- **Jest**: 测试框架
+- **Node.js**: Runtime environment
+- **ES Modules**: JavaScript module system
+- **Commander.js**: Command-line argument parsing
+- **fast-xml-parser**: XML parsing
+- **node-html-markdown**: HTML to Markdown conversion
+- **tar**: Compressed file processing
+- **Jest**: Testing framework
 
-## 错误处理
+## Error Handling
 
-- 单个课程转换失败不会影响其他课程
-- 详细的错误信息和堆栈跟踪（详细模式）
-- 优雅降级处理不支持的内容类型
-- 自动清理临时文件
-
-
-
-## AI 辅助开发声明
-
-本项目在开发过程中使用了以下 AI 工具进行辅助：
-
-- **ChatGPT**: 帮助梳理代码运作思路和架构设计
-- **Cursor**: 协助完成 README 文档编写和部分代码调试
-- **Claude Code**: 协助完成 Jest 测试文档编写和 Jest 教学指导
-
-这些 AI 工具在开发过程中提供了宝贵的思路指导和代码辅助，但所有最终代码实现、架构决策和功能设计均由开发者独立完成。
+- Individual course conversion failures don't affect other courses
+- Detailed error information and stack traces (verbose mode)
+- Graceful degradation for unsupported content types
+- Automatic cleanup of temporary files
 
 
-## 作者
+
+## AI-Assisted Development Statement
+
+This project was developed with assistance from the following AI tools:
+
+- **ChatGPT**: Helped with code logic organization and architectural design
+- **Cursor**: Assisted with README documentation writing and partial code debugging
+- **Claude Code**: Assisted with Jest testing documentation and Jest teaching guidance
+
+These AI tools provided valuable guidance and code assistance during development, but all final code implementation, architectural decisions, and functional design were completed independently by the developer.
+
+
+## Author
 
 Yikai Liu
