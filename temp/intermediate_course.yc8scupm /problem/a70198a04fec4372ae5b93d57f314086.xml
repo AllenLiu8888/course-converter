@@ -1,7 +1,0 @@
-<problem display_name="Q2" markdown="null">
-<stringresponse answer="Hygrometer" type="ci">
-<label>What is the name of the instrument used to measure humidity?</label>
-<additional_answer answer="hygrometer"/>
-  <textline size="20"/>
-</stringresponse>
-</problem>
