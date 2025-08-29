@@ -20,6 +20,10 @@ import {
   // Media processing
   rewriteMediaPaths,
   
+  // Problem types
+  renderNumberInputProblem,
+  renderChoiceProblem,
+  
   // Course structure
   parseCourseXml,
   buildCourseTree,
@@ -540,6 +544,166 @@ describe('Course Converter - Core Requirements Tests', () => {
         expect(result).toContain('[[ Barometer | ( Anemometer ) | Hygrometer | Thermometer ]]');
         expect(result).toContain('- [[?]] You can add an optional tip or note related to the prompt like this.');
       });
+    });
+  });
+
+  // ============================================================================
+  // Additional Coverage Tests - Number Input and Choice Problems
+  // ============================================================================
+  describe('Number Input Problems', () => {
+    it('should render number input problem correctly', () => {
+      const content = {
+        numericalresponse: {
+          p: 'What is 25 + 17?',
+          label: 'Enter your answer:',
+          '@_answer': '42'
+        }
+      };
+      
+      const result = renderNumberInputProblem(content, 'Math Addition');
+      
+      expect(result).toContain('What is 25 + 17?');
+      expect(result).toContain('Enter your answer:');
+      expect(result).toContain('[[Enter a number]]');
+    });
+
+    it('should render number input problem with hints', () => {
+      const content = {
+        numericalresponse: {
+          p: 'Calculate $\\sqrt{144}$',
+          hint: [
+            'Think about what number multiplied by itself equals 144',
+            'The answer is a perfect square'
+          ]
+        }
+      };
+      
+      const result = renderNumberInputProblem(content, 'Square Root');
+      
+      expect(result).toContain('Calculate $\\sqrt{144}$');
+      expect(result).toContain('[[Enter a number]]');
+      expect(result).toContain('- [[?]] Think about what number multiplied by itself equals 144');
+      expect(result).toContain('- [[?]] The answer is a perfect square');
+    });
+
+    it('should handle number input with only answer attribute', () => {
+      const content = {
+        numericalresponse: {
+          '@_answer': '100'
+        }
+      };
+      
+      const result = renderNumberInputProblem(content, 'Simple Number');
+      
+      expect(result).toContain('[[Enter a number]]');
+    });
+  });
+
+  describe('Choice Problems', () => {
+    it('should render choice problem correctly', () => {
+      const content = {
+        choiceresponse: {
+          p: 'Which programming language is used for web development?',
+          choicegroup: {
+            choice: [
+              { '#text': 'Python', '@_correct': 'false' },
+              { '#text': 'JavaScript', '@_correct': 'true' },
+              { '#text': 'C++', '@_correct': 'false' }
+            ]
+          }
+        }
+      };
+      
+      const result = renderChoiceProblem(content, 'Programming Language');
+      
+      expect(result).toContain('Which programming language is used for web development?');
+      expect(result).toContain('- [( )] Python');
+      expect(result).toContain('- [(X)] JavaScript');
+      expect(result).toContain('- [( )] C++');
+    });
+
+    it('should handle choice problem with hints', () => {
+      const content = {
+        choiceresponse: {
+          p: 'What is the capital of Japan?',
+          choicegroup: {
+            choice: [
+              { '#text': 'Seoul', '@_correct': 'false' },
+              { '#text': 'Tokyo', '@_correct': 'true' },
+              { '#text': 'Beijing', '@_correct': 'false' }
+            ]
+          },
+          hint: [
+            'It is the most populous metropolitan area in the world',
+            'The city hosted the 2020 Olympics'
+          ]
+        }
+      };
+      
+      const result = renderChoiceProblem(content, 'Japan Capital');
+      
+      expect(result).toContain('What is the capital of Japan?');
+      expect(result).toContain('- [( )] Seoul');
+      expect(result).toContain('- [(X)] Tokyo');
+      expect(result).toContain('- [( )] Beijing');
+      expect(result).toContain('- [[?]] It is the most populous metropolitan area in the world');
+      expect(result).toContain('- [[?]] The city hosted the 2020 Olympics');
+    });
+  });
+
+  // ============================================================================
+  // Error Handling and Edge Cases
+  // ============================================================================
+  describe('Error Handling and Edge Cases', () => {
+    it('should handle empty problem content gracefully', () => {
+      const emptyContent = {};
+      
+      // Test different problem types with empty content
+      expect(() => renderNumberInputProblem(emptyContent, 'Empty')).not.toThrow();
+      expect(() => renderChoiceProblem(emptyContent, 'Empty')).not.toThrow();
+      expect(() => renderTextInputProblem(emptyContent, 'Empty')).not.toThrow();
+    });
+
+    it('should handle extractHints with invalid input', () => {
+      // Test with empty object (valid case)
+      expect(extractHints({})).toEqual([]);
+      
+      // Test that functions exist and behave predictably with edge cases
+      const emptyHints = extractHints({ someOtherProperty: 'value' });
+      expect(Array.isArray(emptyHints)).toBe(true);
+    });
+
+    it('should handle problem type detection with invalid content', () => {
+      expect(determineProblemType({})).toBe('unknown');
+      
+      // Test with valid empty problem structure
+      const unknownProblem = { someUnknownType: {} };
+      expect(determineProblemType(unknownProblem)).toBe('unknown');
+    });
+
+    it('should handle multiple choice with missing choices', () => {
+      const content = {
+        multiplechoiceresponse: {
+          p: 'Question with no choices'
+        }
+      };
+      
+      const result = renderMultipleChoiceProblem(content, 'No Choices');
+      expect(result).toContain('Question with no choices');
+    });
+
+    it('should handle image path replacement with malformed URLs', () => {
+      const malformedHTML = `
+        <img src="/static/" alt="Empty path" />
+        <img src="/static" alt="No trailing slash" />
+        <img src="static/relative.jpg" alt="Relative path" />
+      `;
+      
+      const result = rewriteMediaPaths(malformedHTML);
+      
+      // Should handle these gracefully without breaking
+      expect(result).toBeDefined();
+      expect(typeof result).toBe('string');
     });
   });
 });

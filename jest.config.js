@@ -2,8 +2,7 @@ export default {
   testEnvironment: 'node',
   testMatch: ['<rootDir>/tests/**/*.test.js'],
   collectCoverage: true,
-  coverageDirectory: 'coverage',
-  coverageReporters: ['text', 'lcov', 'html'],
+  coverageReporters: ['text'],
   collectCoverageFrom: [
     'courseconverter.js',
     '!**/node_modules/**'
